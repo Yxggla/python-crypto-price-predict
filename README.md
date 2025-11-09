@@ -2,6 +2,11 @@
 
 This project provides a reproducible workflow for downloading, analysing, visualising, and modelling cryptocurrency time series. It targets the COMM7330 course requirements and supports a six-person collaboration workflow covering data acquisition, exploratory analysis, modelling, visual reporting, and presentation deliverables.
 
+## Problem statement & objective
+
+Retail crypto investors often jump between apps to answer three questions before taking action: *Is the market trending? Is volatility acceptable? Do complementary signals confirm my intuition?*  
+Our 10‑minute presentation (and the supporting system) must therefore help a novice investor decide whether to **enter, hold, or exit** BTC/ETH positions within a single dashboard + report bundle. Every deliverable below links back to that north star.
+
 ## Project layout
 
 ```
@@ -37,25 +42,43 @@ requirements.txt  # Python dependencies
 - `src/visualization.py` — Provides Matplotlib and Plotly helpers (price trends with volume overlays, candlestick charts, actual-vs-predicted plots).
 - `src/model.py` — Implements a linear-regression baseline plus an ARIMA helper for time-series forecasting.
 
-## Planned extensions (for a 10‑minute presentation)
+## Planned extensions (aligned to the objective)
 
 | Track | Why it matters | Concrete deliverables |
 | --- | --- | --- |
-| **User story & objective** | Anchor the work around “helping novice crypto investors judge entry/exit within 10 minutes.” | One slide/README paragraph that states the problem, target users, and success metrics. |
-| **Richer data coverage** | Link price action with macro/chain signals to explain moves. | Extend `data_loader.py` to fetch SOL-USD, BTC.D dominance, FRED rates, ETH active addresses, and exchange net inflow CSVs. |
-| **Deeper indicators** | Give the audience insight beyond OHLC. | Add features such as rolling max drawdown, Sharpe ratio, BTC–ETH spread z-score, and volatility regimes in `src/analysis.py` + Notebook 02 outputs. |
-| **Story-driven visuals** | Slides/screenshots need to “show” the findings. | Plotly dashboard with linked charts, regime shading, and model error bands saved via `--save-figures`. |
-| **Models & strategies** | Baseline LR/ARIMA is good; comparison makes it compelling. | Add Prophet or LSTM, plus a simple MA crossover / model-signal backtest with equity curve + confusion chart. |
-| **Narrated notebooks** | Instructor can trace the analysis logic. | Fill `notebooks/01-03` with markdown rationale, code, and saved outputs ready for report/presentation reuse. |
+| **User story & objective** | Keep the “entry/exit decision within 10 minutes” story explicit. | README + slide describing persona, decision workflow, and how each module supports it. |
+| **Richer data coverage** | Entry/exit decisions need macro + on-chain confirmation. | Extend `data_loader.py` to fetch SOL-USD, BTC.D dominance, FRED rates, ETH active addresses, and exchange net inflow CSVs with caching. |
+| **Deeper indicators** | Users need interpretable signals, not just price charts. | Implement rolling max drawdown, Sharpe ratio, BTC–ETH spread z-score, volatility regimes, and annotate when signals trigger. |
+| **Story-driven visuals** | Decision makers grasp insights visually. | Plotly dashboard with linked charts, regime shading, signal annotations, and exportable PNG/GIF via `--save-figures`. |
+| **Models & strategies** | Quantify “what happens next” and tie it to actions. | Add Prophet or LSTM, compare with LR/ARIMA, and run MA crossover or model-signal backtests with equity curve + confusion chart. |
+| **Narrated notebooks** | Documentation must prove the workflow is reproducible. | Fill `notebooks/01-03` with markdown rationale, saved outputs, and callouts that map to the 10‑minute story. |
 
 ## Suggested team workflow
 
-1. **Project Lead & Reporter (Person A)** – Owns the README narrative above, drafts the 10‑minute script, curates screenshots from notebooks, and ensures findings map to the user story/objective.
-2. **Data Acquisition & Feature Engineering (Person B)** – Extends `src/data_loader.py` plus `notebooks/01_data_cleaning.ipynb` to pull multi-asset, macro, and on-chain metrics; documents a data dictionary and quality checks.
-3. **Exploratory Analysis & Indicator Design (Person C)** – Enhances `src/analysis.py`, computes return/volatility regimes, z-scores, drawdowns, and summarizes insights with markdown commentary in Notebook 02.
-4. **Visualization & Dashboarding (Person D)** – Expands `src/visualization.py` with Plotly dashboards, regime shading, and error-band plots; exports publication-ready figures via CLI `--save-figures`.
-5. **Modeling & Backtesting (Person E)** – Builds Prophet/LSTM variants in `src/model.py` or dedicated notebook sections, compares against LR/ARIMA baselines, and codes a simple trading/backtest routine with performance stats.
-6. **Integration & Demo (Person F)** – Keeps `main.py` runnable end-to-end, wires CLI flags for new data/features, prepares a short live demo or recorded run showing how the system guides entry/exit decisions.
+1. **Person A – Project Lead, Storytelling & Reporting**
+   - Maintain the “entry/exit in 10 minutes” narrative inside README + slides, update success metrics, and ensure every module explicitly links back to the objective.
+   - Curate screenshots/figures exported by teammates, assemble the report outline, and script the 10‑minute presentation (including speaker notes).
+   - Facilitate weekly sync/checklist so each deliverable meets the persona’s needs; log blockers and decisions in `README.md`.
+2. **Person B – Data Acquisition & Feature Engineering**
+   - Extend `src/data_loader.py` to ingest additional markets (BTC-USD, ETH-USD, SOL-USD), dominance indices, FRED macro series, and on-chain metrics; document ETL steps in `notebooks/01_data_cleaning.ipynb`.
+   - Produce a data dictionary covering column definitions, refresh cadence, and how each feature supports entry/exit decisions.
+   - Implement validation scripts (missing data checks, alignment across frequencies) and share sample CSVs in `data/`.
+3. **Person C – Exploratory Analysis & Indicator Design**
+   - Enhance `src/analysis.py` with max drawdown, Sharpe, z-score spreads, volatility regimes, and turn them into “signals” with clear thresholds.
+   - Own `notebooks/02_analysis.ipynb`: narrate insights (markdown + figures) that explain how indicators anticipate good/bad entry points.
+   - Hand over concise insight summaries to Person A for inclusion in report/presentation.
+4. **Person D – Visualization & Dashboarding**
+   - Upgrade `src/visualization.py` to deliver Plotly dashboards combining price, volume, indicators, and model signals; include regime shading + tooltips explaining what to do.
+   - Build a one-pager dashboard (HTML/GIF/png) via CLI `--save-figures` so the persona can “see everything” quickly.
+   - Coordinate with Person F to ensure the dashboard animates or updates correctly during live demo.
+5. **Person E – Modeling & Backtesting**
+   - Implement Prophet or LSTM in `src/model.py` (or a dedicated module), compare against the linear regression/ARIMA baselines, and document metrics (MAE/MAPE) in `notebooks/03_prediction.ipynb`.
+   - Translate model outputs into a simple decision rule (e.g., MA crossover, predicted return > threshold) and backtest it; export equity curve, hit-rate table, and confusion chart.
+   - Summarize when the model recommends entries/exits and how confident it is, so Person A can articulate the recommendation quality.
+6. **Person F – Integration, CLI & Demo Experience**
+   - Keep `main.py` orchestrating the full workflow (fetch → features → indicators → models → charts) with flags for new data sources, signal thresholds, and export paths.
+   - Produce a scripted CLI run (recorded GIF or terminal log) that demonstrates how the persona would interact with the tool in under 10 minutes.
+   - Manage packaging (requirements, README instructions, optional Docker) so instructors can reproduce the demo.
 
 ## Next steps
 
