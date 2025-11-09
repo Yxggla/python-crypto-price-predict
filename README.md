@@ -44,13 +44,25 @@ requirements.txt  # Python dependencies
    ```
    Use `--force` to refresh cached CSV files in `data/`.
    Add `--save-figures` to persist Matplotlib charts (price trends, actual-vs-predicted) to the `figures/` directory for later use in reports or slides.
+   Add `--plotly-kline --show-kline` to render the polished Plotly candlestick chart in a browser (pair it with `--save-figures` to keep HTML exports such as `figures/btc-usd_kline.html`).
    Add `--quiet` if you only want cached files + charts without console tables.
    Use `--macro-series DGS10` (or `--macro-series none`) to control FRED pulls, `--dominance-inst-id BTC-USDT` to switch OKX dominance proxies, and `--skip-cmc` if you do not want CoinMarketCap metrics.
+
+### Quick candlestick preview
+
+Once you've run the CLI and cached price data, you can regenerate the interactive K-line without writing a notebook:
+
+```bash
+python main.py --symbols BTC-USD --days 365 --interval 1d \
+  --plotly-kline --show-kline --save-figures
+```
+
+This command both opens the chart in a browser window and writes an HTML copy to `figures/btc-usd_kline.html` (thanks to `--save-figures`).
 
 ## Module overview
 
 - `src/data_loader.py` — Handles crypto price downloads (yfinance), OKX dominance candles, FRED macro series, and CoinMarketCap global/asset metrics with CSV caching.
-- `src/analysis.py` — Computes daily returns, rolling volatility, and cross-asset correlations.
+- `src/analysis.py` — Computes daily returns, rolling volatility, cross-asset correlations, and open-to-close period performance.
 - `src/visualization.py` — Provides Matplotlib and Plotly helpers (price trends with volume overlays, candlestick charts, actual-vs-predicted plots).
 - `src/model.py` — Implements a linear-regression baseline plus an ARIMA helper for time-series forecasting.
 

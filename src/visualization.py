@@ -8,6 +8,7 @@ from typing import Optional
 import matplotlib.pyplot as plt
 import pandas as pd
 import plotly.graph_objects as go
+from plotly.subplots import make_subplots
 
 
 def _maybe_save(fig: plt.Figure, save_path: Optional[Path]) -> None:
@@ -54,21 +55,105 @@ def plot_price_history(
     return ax
 
 
-def kline_chart(df: pd.DataFrame, symbol: str) -> go.Figure:
-    """Create an interactive Japanese candlestick chart."""
-    fig = go.Figure(
-        data=[
-            go.Candlestick(
-                x=df["date"],
-                open=df["Open"],
-                high=df["High"],
-                low=df["Low"],
-                close=df["Close"],
-                name=symbol,
-            )
-        ]
+def kline_chart(df: pd.DataFrame, symbol: str, show_volume: bool = True) -> go.Figure:
+    """Create a polished candlestick chart with optional volume bars."""
+
+    include_volume = show_volume and "Volume" in df.columns
+    rows = 2 if include_volume else 1
+    row_heights = [0.74, 0.26] if include_volume else [1]
+
+    fig = make_subplots(
+        rows=rows,
+        cols=1,
+        shared_xaxes=True,
+        vertical_spacing=0.03,
+        row_heights=row_heights,
+        specs=[[{"secondary_y": False}] for _ in range(rows)],
     )
-    fig.update_layout(title=f"{symbol} candlestick chart", xaxis_title="Date", yaxis_title="Price (USD)")
+
+    hover_text = [
+        (
+            f"<b>{pd.to_datetime(date):%Y-%m-%d}</b><br>"
+            f"Open: {open_:.2f}<br>High: {high:.2f}<br>Low: {low:.2f}<br>Close: {close:.2f}"
+        )
+        for date, open_, high, low, close in zip(df["date"], df["Open"], df["High"], df["Low"], df["Close"])
+    ]
+
+    fig.add_trace(
+        go.Candlestick(
+            x=df["date"],
+            open=df["Open"],
+            high=df["High"],
+            low=df["Low"],
+            close=df["Close"],
+            name=symbol,
+            increasing_line_color="#26a69a",
+            increasing_fillcolor="rgba(38, 166, 154, 0.4)",
+            decreasing_line_color="#ef5350",
+            decreasing_fillcolor="rgba(239, 83, 80, 0.4)",
+            line_width=1.2,
+            hovertext=hover_text,
+            hoverinfo="text",
+        ),
+        row=1,
+        col=1,
+    )
+
+    if include_volume:
+        colors = ["#26a69a" if close >= open_ else "#ef5350" for open_, close in zip(df["Open"], df["Close"])]
+        fig.add_trace(
+            go.Bar(
+                x=df["date"],
+                y=df["Volume"],
+                marker_color=colors,
+                name="Volume",
+                opacity=0.55,
+            ),
+            row=2,
+            col=1,
+        )
+
+    fig.update_layout(
+        template="plotly_white",
+        hovermode="x unified",
+        title=f"{symbol} candlestick chart",
+        margin=dict(l=40, r=20, t=60, b=40),
+        showlegend=False,
+    )
+
+    for row in range(1, rows + 1):
+        axis_kwargs = dict(
+            showgrid=True,
+            gridcolor="rgba(0,0,0,0.08)",
+            showspikes=True,
+            spikemode="across",
+            spikedash="solid",
+            spikesnap="cursor",
+            spikecolor="rgba(0,0,0,0.4)",
+            spikethickness=1,
+        )
+        if row == rows:
+            axis_kwargs["rangeslider"] = dict(visible=False)
+        fig.update_xaxes(row=row, col=1, **axis_kwargs)
+
+    fig.update_yaxes(
+        title_text="Price (USD)",
+        showline=True,
+        linecolor="rgba(0,0,0,0.3)",
+        mirror=True,
+        row=1,
+        col=1,
+    )
+
+    if include_volume:
+        fig.update_yaxes(
+            title_text="Volume",
+            showgrid=False,
+            rangemode="tozero",
+            row=2,
+            col=1,
+        )
+
     return fig
 
 

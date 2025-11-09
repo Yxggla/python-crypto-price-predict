@@ -27,3 +27,23 @@ def pairwise_correlation(datasets: Dict[str, pd.DataFrame]) -> pd.DataFrame:
     """Return correlation matrix for closing prices."""
     closes = pd.DataFrame({name: data["Close"] for name, data in datasets.items()})
     return closes.corr()
+
+
+def period_return(df: pd.DataFrame) -> pd.Series:
+    """Return first open, last close, and percentage change over the dataframe."""
+    if df.empty:
+        raise ValueError("Dataframe is empty; cannot compute period return.")
+
+    start_open = float(df["Open"].iloc[0])
+    end_close = float(df["Close"].iloc[-1])
+    pct_change = (end_close - start_open) / start_open * 100 if start_open else float("nan")
+
+    return pd.Series(
+        {
+            "start_date": df["date"].iloc[0],
+            "end_date": df["date"].iloc[-1],
+            "open_price": start_open,
+            "close_price": end_close,
+            "pct_change": pct_change,
+        }
+    )

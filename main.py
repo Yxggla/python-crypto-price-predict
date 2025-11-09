@@ -10,7 +10,7 @@ from typing import Dict, List, Optional
 import matplotlib.pyplot as plt
 import pandas as pd
 
-from src.analysis import pairwise_correlation, summarize_volatility
+from src.analysis import pairwise_correlation, summarize_volatility, period_return
 from src.data_loader import (
     CoinMarketCapAssetConfig,
     CoinMarketCapGlobalConfig,
@@ -29,7 +29,7 @@ from src.data_loader import (
     load_okx_candles,
 )
 from src.model import predict_linear_regression, train_linear_regression
-from src.visualization import plot_actual_vs_predicted, plot_price_history
+from src.visualization import plot_actual_vs_predicted, plot_price_history, kline_chart
 
 
 def parse_args() -> argparse.Namespace:
@@ -40,6 +40,16 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--force", action="store_true", help="Redownload existing CSV files")
     parser.add_argument("--save-figures", action="store_true", help="Persist generated charts to the figures/ directory")
     parser.add_argument("--quiet", action="store_true", help="Silence verbose dataframe prints")
+    parser.add_argument(
+        "--plotly-kline",
+        action="store_true",
+        help="Generate Plotly candlestick charts for each symbol",
+    )
+    parser.add_argument(
+        "--show-kline",
+        action="store_true",
+        help="Display Plotly candlestick charts when --plotly-kline is enabled",
+    )
 
     parser.add_argument(
         "--dominance-inst-id",
@@ -121,6 +131,8 @@ def main() -> None:
     macro_series = [] if args.macro_series == ["none"] else args.macro_series
 
     datasets: Dict[str, pd.DataFrame] = {}
+    performance_rows = []
+
     for symbol in args.symbols:
         csv_path = download_price_history(
             DownloadConfig(symbol=symbol, start=start_date.isoformat(), end=end_date.isoformat(), interval=args.interval),
@@ -137,10 +149,35 @@ def main() -> None:
             print(f"{symbol} latest volatility snapshot:")
             print(vol[["date", "Close", "rolling_volatility"]].tail())
 
+        period_stats = period_return(df)
+        stats_row = {"symbol": symbol, **period_stats.to_dict()}
+        performance_rows.append(stats_row)
+        if not args.quiet:
+            pct = stats_row["pct_change"]
+            print(
+                f"[performance] {symbol}: {stats_row['start_date']} open {stats_row['open_price']:.2f} -> "
+                f"{stats_row['end_date']} close {stats_row['close_price']:.2f} ({pct:+.2f}%)"
+            )
+
+        if args.plotly_kline:
+            kline_fig = kline_chart(df, symbol)
+            if args.save_figures and figures_dir:
+                html_path = figures_dir / f"{symbol.lower()}_kline.html"
+                kline_fig.write_html(html_path)
+                if not args.quiet:
+                    print(f"[fig] Saved Plotly k-line to {html_path}")
+            if args.show_kline:
+                kline_fig.show()
+
     if len(datasets) >= 2 and not args.quiet:
         corr = pairwise_correlation(datasets)
         print("Correlation matrix:")
         print(corr)
+
+    if performance_rows and not args.quiet:
+        performance_df = pd.DataFrame(performance_rows)
+        print("\nPeriod performance (% change from first open to last close):")
+        print(performance_df[["symbol", "open_price", "close_price", "pct_change"]])
 
     asset_symbols = sorted({symbol.split("-")[0].upper() for symbol in args.symbols})
 

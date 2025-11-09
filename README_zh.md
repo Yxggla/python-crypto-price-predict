@@ -44,13 +44,25 @@ requirements.txt  # 依赖列表
    ```
    - 使用 `--force` 刷新 `data/` 目录中的缓存 CSV。
    - 加上 `--save-figures` 将价格走势、预测对比等图表保存到 `figures/`，方便报告或幻灯片使用。
+   - `--plotly-kline --show-kline` 会直接生成并弹出交互式 Plotly K 线图；若同时加上 `--save-figures`，会把 HTML 导出到如 `figures/btc-usd_kline.html`。
    - `--quiet` 可关闭 CLI 中的表格打印，直接生成缓存文件/图表。
    - `--macro-series DGS10`（或 `--macro-series none`）控制 FRED 指标，`--dominance-inst-id BTC-USDT` 切换 OKX 优势代理，`--skip-cmc` 可跳过 CoinMarketCap 下载。
+
+### 快速预览交互式 K 线
+
+在完成一次 CLI 数据拉取后，可随时用下面的命令重新生成炫酷 K 线（无需额外脚本/Notebook）：
+
+```bash
+python main.py --symbols BTC-USD --days 365 --interval 1d \
+  --plotly-kline --show-kline --save-figures
+```
+
+命令会自动在浏览器打开图表，并在 `figures/btc-usd_kline.html` 中保留副本（依赖 `--save-figures`）。
 
 ## 模块概览
 
 - `src/data_loader.py` —— 覆盖 yfinance 价格、OKX BTC-USDT 蜡烛（用作 BTC.D 代理）、FRED 宏观序列及 CoinMarketCap 全球/资产指标，统一缓存到 CSV。
-- `src/analysis.py` —— 计算日收益、滚动波动率与跨资产相关性。
+- `src/analysis.py` —— 计算日收益、滚动波动率、跨资产相关性，以及从首开到末收的整体涨跌幅。
 - `src/visualization.py` —— 提供价格 + 成交量、多均线、蜡烛图、预测对比等 Matplotlib/Plotly 辅助函数。
 - `src/model.py` —— 实现线性回归基线与 ARIMA，后续可扩展到 Prophet/LSTM。
 
