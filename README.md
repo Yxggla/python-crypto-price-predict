@@ -39,10 +39,13 @@ requirements.txt  # Python dependencies
    ```
 4. Run the CLI to fetch data, compute metrics, fit a baseline model, and preview outputs:
    ```bash
-   python main.py --symbols BTC-USD ETH-USD SOL-USD --days 730 --interval 1d
+   python main.py --symbols BTC-USD ETH-USD SOL-USD --days 730 --interval 1d \
+     --export-xlsx exports/crypto_dashboard.xlsx
    ```
    Use `--force` to refresh cached CSV files in `data/`.
    Add `--save-figures` to persist Matplotlib charts (price trends, actual-vs-predicted) to the `figures/` directory for later use in reports or slides.
+   Add `--quiet` if you only want cached files + charts without console tables.
+   Use `--macro-series DGS10` (or `--macro-series none`) to control FRED pulls, `--dominance-symbol BTCDOMUSDT` to switch Binance dominance pairs, and `--skip-cmc` if you do not want CoinMarketCap metrics.
 
 ## Module overview
 
@@ -56,6 +59,8 @@ requirements.txt  # Python dependencies
 > **Environment prerequisites**
 > - `pip install -r requirements.txt` now includes `pandas-datareader` for FRED downloads.
 > - Set `export COINMARKETCAP_API_KEY=<your-key>` (or load it from `.env`) before requesting CoinMarketCap data.
+>
+> The CLI automatically runs the same helpers (BTC.D dominance, FRED series, CoinMarketCap metrics) and can bundle everything into Excel via `--export-xlsx`. The snippets below are for ad-hoc or notebook use.
 
 1. **Price history (BTC / ETH / SOL)**  
    ```python
@@ -104,7 +109,7 @@ requirements.txt  # Python dependencies
 | Track | Why it matters | Concrete deliverables |
 | --- | --- | --- |
 | **User story & objective** | Keep the “entry/exit decision within 10 minutes” story explicit. | README + slide describing persona, decision workflow, and how each module supports it. |
-| **Richer data coverage** | Entry/exit decisions need macro + market-share confirmation. | Extend `data_loader.py` to fetch SOL-USD, BTC.D dominance, FRED rates, and CoinMarketCap global metrics (dominance, total cap, volume) with caching. |
+| **Richer data coverage** | Entry/exit decisions need macro + market-share confirmation. | Extend `data_loader.py` and CLI to fetch SOL-USD, BTC.D dominance, FRED rates, and CoinMarketCap global metrics (dominance, total cap, volume) with caching + Excel export. |
 | **Deeper indicators** | Users need interpretable signals, not just price charts. | Implement rolling max drawdown, Sharpe ratio, BTC–ETH spread z-score, volatility regimes, and annotate when signals trigger. |
 | **Story-driven visuals** | Decision makers grasp insights visually. | Plotly dashboard with linked charts, regime shading, signal annotations, and exportable PNG/GIF via `--save-figures`. |
 | **Models & strategies** | Quantify “what happens next” and tie it to actions. | Add Prophet or LSTM, compare with LR/ARIMA, and run MA crossover or model-signal backtests with equity curve + confusion chart. |

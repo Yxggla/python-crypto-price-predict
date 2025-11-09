@@ -39,10 +39,13 @@ requirements.txt  # 依赖列表
    ```
 4. 运行 CLI，完成数据拉取、指标计算、基线建模与结果预览：
    ```bash
-   python main.py --symbols BTC-USD ETH-USD SOL-USD --days 730 --interval 1d
+   python main.py --symbols BTC-USD ETH-USD SOL-USD --days 730 --interval 1d \
+     --export-xlsx exports/crypto_dashboard.xlsx
    ```
    - 使用 `--force` 刷新 `data/` 目录中的缓存 CSV。
    - 加上 `--save-figures` 将价格走势、预测对比等图表保存到 `figures/`，方便报告或幻灯片使用。
+   - `--quiet` 可关闭 CLI 中的表格打印，直接生成缓存文件/图表。
+   - `--macro-series DGS10`（或 `--macro-series none`）控制 FRED 指标，`--dominance-symbol BTCDOMUSDT` 切换 Binance 优势交易对，`--skip-cmc` 可跳过 CoinMarketCap 下载。
 
 ## 模块概览
 
@@ -56,6 +59,8 @@ requirements.txt  # 依赖列表
 > **环境准备**
 > - `requirements.txt` 已包含 `pandas-datareader`，用于 FRED 拉取。
 > - 使用 CoinMarketCap 时，请先 `export COINMARKETCAP_API_KEY=<你的密钥>`（或在 `.env` 中加载）。
+>
+> CLI 默认会调用这些助手函数（BTC.D、FRED、CoinMarketCap），并可通过 `--export-xlsx` 一次性导出 Excel。下面的示例更适合单独 Notebook 或脚本调试。
 
 1. **币价历史（BTC / ETH / SOL）**  
    ```python
@@ -102,7 +107,7 @@ requirements.txt  # 依赖列表
 | 方向 | 价值 | 具体交付物 |
 | --- | --- | --- |
 | **用户故事与目标** | 始终强调“10 分钟内做出入场/出场决策”的场景。 | README + 幻灯片说明 Persona、决策流程以及各模块如何支撑。 |
-| **更丰富的数据覆盖** | 入场/出场需要宏观 + 市值占比信号的确认。 | 扩展 `data_loader.py`：拉取 SOL-USD、BTC.D、FRED 利率以及 CoinMarketCap 全球指标（总市值、成交量、主导率）并缓存。 |
+| **更丰富的数据覆盖** | 入场/出场需要宏观 + 市值占比信号的确认。 | 扩展 `data_loader.py` 与 CLI：拉取 SOL-USD、BTC.D、FRED 利率以及 CoinMarketCap 全球指标（总市值、成交量、主导率）并缓存/导出 Excel。 |
 | **更深入的指标** | 让用户看到可解释的信号，而非纯价格曲线。 | 在 `src/analysis.py` 实现滚动最大回撤、夏普比率、BTC-ETH 价差 z-score、波动率 Regime，并标注触发点。 |
 | **故事化可视化** | 决策者对视觉信息更敏感。 | Plotly 仪表盘（联动图、Regime 着色、信号注释），CLI `--save-figures` 导出 PNG/GIF。 |
 | **模型与策略** | 量化“接下来会怎样”，并指向行动。 | 新增 Prophet 或 LSTM，与 LR/ARIMA 对比；实现 MA 金叉或模型信号回测，输出资金曲线与混淆矩阵。 |
