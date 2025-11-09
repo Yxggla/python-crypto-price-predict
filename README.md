@@ -28,9 +28,18 @@ requirements.txt  # Python dependencies
    ```bash
    pip install -r requirements.txt
    ```
-3. Run the CLI to fetch data, compute metrics, fit a baseline model, and preview outputs:
+3. Provide required API credentials (CoinMarketCap in this phase). You can either export it in your shell or store it in a local `.env` file (ignored by git) and `source` it before running commands:
    ```bash
-   python main.py --symbols BTC-USD ETH-USD --days 730 --interval 1d
+   # option A: export
+   export COINMARKETCAP_API_KEY="<your-coinmarketcap-key>"
+
+   # option B: create .env (same folder) and load it into the shell
+   echo 'COINMARKETCAP_API_KEY="<your-coinmarketcap-key>"' >> .env
+   set -a; source .env; set +a
+   ```
+4. Run the CLI to fetch data, compute metrics, fit a baseline model, and preview outputs:
+   ```bash
+   python main.py --symbols BTC-USD ETH-USD SOL-USD --days 730 --interval 1d
    ```
    Use `--force` to refresh cached CSV files in `data/`.
    Add `--save-figures` to persist Matplotlib charts (price trends, actual-vs-predicted) to the `figures/` directory for later use in reports or slides.
@@ -46,7 +55,7 @@ requirements.txt  # Python dependencies
 
 > **Environment prerequisites**
 > - `pip install -r requirements.txt` now includes `pandas-datareader` for FRED downloads.
-> - Set `export COINMARKETCAP_API_KEY=...` (e.g., `export COINMARKETCAP_API_KEY=1c991b9a-1d45-4d60-99a7-73341234eb30`) before requesting CoinMarketCap data.
+> - Set `export COINMARKETCAP_API_KEY=<your-key>` (or load it from `.env`) before requesting CoinMarketCap data.
 
 1. **Price history (BTC / ETH / SOL)**  
    ```python

@@ -28,9 +28,18 @@ requirements.txt  # 依赖列表
    ```bash
    pip install -r requirements.txt
    ```
-3. 运行 CLI，完成数据拉取、指标计算、基线建模与结果预览：
+3. 配置必要的 API Key（当前需要 CoinMarketCap）。可以直接 `export`，或在 `.env` 文件中写入并 `source`：
    ```bash
-   python main.py --symbols BTC-USD ETH-USD --days 730 --interval 1d
+   # 方式 A：直接 export
+   export COINMARKETCAP_API_KEY="<你的 CoinMarketCap Key>"
+
+   # 方式 B：写入 .env 并加载
+   echo 'COINMARKETCAP_API_KEY="<你的 CoinMarketCap Key>"' >> .env
+   set -a; source .env; set +a
+   ```
+4. 运行 CLI，完成数据拉取、指标计算、基线建模与结果预览：
+   ```bash
+   python main.py --symbols BTC-USD ETH-USD SOL-USD --days 730 --interval 1d
    ```
    - 使用 `--force` 刷新 `data/` 目录中的缓存 CSV。
    - 加上 `--save-figures` 将价格走势、预测对比等图表保存到 `figures/`，方便报告或幻灯片使用。
@@ -46,7 +55,7 @@ requirements.txt  # 依赖列表
 
 > **环境准备**
 > - `requirements.txt` 已包含 `pandas-datareader`，用于 FRED 拉取。
-> - 使用 CoinMarketCap 时，请先 `export COINMARKETCAP_API_KEY=你的密钥`（例如 `export COINMARKETCAP_API_KEY=1c991b9a-1d45-4d60-99a7-73341234eb30`）。
+> - 使用 CoinMarketCap 时，请先 `export COINMARKETCAP_API_KEY=<你的密钥>`（或在 `.env` 中加载）。
 
 1. **币价历史（BTC / ETH / SOL）**  
    ```python
