@@ -45,11 +45,11 @@ requirements.txt  # 依赖列表
    - 使用 `--force` 刷新 `data/` 目录中的缓存 CSV。
    - 加上 `--save-figures` 将价格走势、预测对比等图表保存到 `figures/`，方便报告或幻灯片使用。
    - `--quiet` 可关闭 CLI 中的表格打印，直接生成缓存文件/图表。
-   - `--macro-series DGS10`（或 `--macro-series none`）控制 FRED 指标，`--dominance-symbol BTCDOMUSDT` 切换 Binance 优势交易对，`--skip-cmc` 可跳过 CoinMarketCap 下载。
+   - `--macro-series DGS10`（或 `--macro-series none`）控制 FRED 指标，`--dominance-inst-id BTC-USDT` 切换 OKX 优势代理，`--skip-cmc` 可跳过 CoinMarketCap 下载。
 
 ## 模块概览
 
-- `src/data_loader.py` —— 覆盖 yfinance 价格、Binance BTCDOMUSDT K 线、FRED 宏观序列及 CoinMarketCap 全球/资产指标，统一缓存到 CSV。
+- `src/data_loader.py` —— 覆盖 yfinance 价格、OKX BTC-USDT 蜡烛（用作 BTC.D 代理）、FRED 宏观序列及 CoinMarketCap 全球/资产指标，统一缓存到 CSV。
 - `src/analysis.py` —— 计算日收益、滚动波动率与跨资产相关性。
 - `src/visualization.py` —— 提供价格 + 成交量、多均线、蜡烛图、预测对比等 Matplotlib/Plotly 辅助函数。
 - `src/model.py` —— 实现线性回归基线与 ARIMA，后续可扩展到 Prophet/LSTM。
@@ -60,7 +60,7 @@ requirements.txt  # 依赖列表
 > - `requirements.txt` 已包含 `pandas-datareader`，用于 FRED 拉取。
 > - 使用 CoinMarketCap 时，请先 `export COINMARKETCAP_API_KEY=<你的密钥>`（或在 `.env` 中加载）。
 >
-> CLI 默认会调用这些助手函数（BTC.D、FRED、CoinMarketCap），并可通过 `--export-xlsx` 一次性导出 Excel。下面的示例更适合单独 Notebook 或脚本调试。
+> CLI 默认会调用这些助手函数（OKX BTC-USDT 优势代理、FRED、CoinMarketCap），并可通过 `--export-xlsx` 一次性导出 Excel。下面的示例更适合单独 Notebook 或脚本调试。
 
 1. **币价历史（BTC / ETH / SOL）**  
    ```python
@@ -76,12 +76,12 @@ requirements.txt  # 依赖列表
    ]
    download_price_histories(configs)
    ```
-2. **BTC.D 优势指标（Binance BTCDOMUSDT K 线）**  
+2. **BTC.D 优势代理（OKX BTC-USDT 蜡烛）**  
    ```python
-   from src.data_loader import BinanceKlinesConfig, download_binance_klines
-   download_binance_klines(BinanceKlinesConfig(symbol="BTCDOMUSDT", interval="1d"))
+   from src.data_loader import OkxCandlesConfig, download_okx_candles
+   download_okx_candles(OkxCandlesConfig(inst_id="BTC-USDT", bar="1D"))
    ```
-   生成的 CSV 含 `date, open, high, low, close, volume`。
+   生成的 CSV 含 `date, open, high, low, close, volume_base`。
 3. **宏观序列（示例：联邦基金利率 FEDFUNDS）**  
    ```python
    from src.data_loader import MacroSeriesConfig, download_macro_series
@@ -107,7 +107,7 @@ requirements.txt  # 依赖列表
 | 方向 | 价值 | 具体交付物 |
 | --- | --- | --- |
 | **用户故事与目标** | 始终强调“10 分钟内做出入场/出场决策”的场景。 | README + 幻灯片说明 Persona、决策流程以及各模块如何支撑。 |
-| **更丰富的数据覆盖** | 入场/出场需要宏观 + 市值占比信号的确认。 | 扩展 `data_loader.py` 与 CLI：拉取 SOL-USD、BTC.D、FRED 利率以及 CoinMarketCap 全球指标（总市值、成交量、主导率）并缓存/导出 Excel。 |
+| **更丰富的数据覆盖** | 入场/出场需要宏观 + 市值占比信号的确认。 | 扩展 `data_loader.py` 与 CLI：拉取 SOL-USD、OKX BTC-USDT 优势代理、FRED 利率以及 CoinMarketCap 全球指标（总市值、成交量、主导率）并缓存/导出 Excel。 |
 | **更深入的指标** | 让用户看到可解释的信号，而非纯价格曲线。 | 在 `src/analysis.py` 实现滚动最大回撤、夏普比率、BTC-ETH 价差 z-score、波动率 Regime，并标注触发点。 |
 | **故事化可视化** | 决策者对视觉信息更敏感。 | Plotly 仪表盘（联动图、Regime 着色、信号注释），CLI `--save-figures` 导出 PNG/GIF。 |
 | **模型与策略** | 量化“接下来会怎样”，并指向行动。 | 新增 Prophet 或 LSTM，与 LR/ARIMA 对比；实现 MA 金叉或模型信号回测，输出资金曲线与混淆矩阵。 |

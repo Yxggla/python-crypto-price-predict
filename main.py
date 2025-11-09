@@ -12,21 +12,21 @@ import pandas as pd
 
 from src.analysis import pairwise_correlation, summarize_volatility
 from src.data_loader import (
-    BinanceKlinesConfig,
     CoinMarketCapAssetConfig,
     CoinMarketCapGlobalConfig,
     DownloadConfig,
     MacroSeriesConfig,
-    download_binance_klines,
+    OkxCandlesConfig,
     download_cmc_asset_quotes,
     download_cmc_global_metrics,
     download_macro_series,
+    download_okx_candles,
     download_price_history,
-    load_binance_klines,
     load_cmc_asset_quotes,
     load_cmc_global_metrics,
     load_history,
     load_macro_series,
+    load_okx_candles,
 )
 from src.model import predict_linear_regression, train_linear_regression
 from src.visualization import plot_actual_vs_predicted, plot_price_history
@@ -42,9 +42,9 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--quiet", action="store_true", help="Silence verbose dataframe prints")
 
     parser.add_argument(
-        "--dominance-symbol",
-        default="BTCDOMUSDT",
-        help="Binance symbol used for BTC dominance klines (set empty string to skip).",
+        "--dominance-inst-id",
+        default="BTC-USDT",
+        help="OKX instrument ID used for dominance proxy candles (set empty string to skip).",
     )
     parser.add_argument(
         "--macro-series",
@@ -73,8 +73,8 @@ def export_workbook(
     export_path: Path,
     price_data: Dict[str, pd.DataFrame],
     dominance_path: Optional[Path],
-    dominance_symbol: Optional[str],
-    dominance_interval: str,
+    dominance_inst_id: Optional[str],
+    dominance_bar: str,
     macro_series: List[str],
     cmc_global_path: Optional[Path],
     cmc_quotes_path: Optional[Path],
@@ -93,8 +93,8 @@ def export_workbook(
             price_frames.append(sheet_df)
         pd.concat(price_frames, ignore_index=True).to_excel(writer, sheet_name="prices", index=False)
 
-        if dominance_path and dominance_symbol:
-            dominance_df = load_binance_klines(symbol=dominance_symbol, interval=dominance_interval)
+        if dominance_path and dominance_inst_id:
+            dominance_df = load_okx_candles(inst_id=dominance_inst_id, bar=dominance_bar)
             dominance_df.to_excel(writer, sheet_name="dominance", index=False)
 
         for series_id in macro_series:
@@ -145,18 +145,22 @@ def main() -> None:
     asset_symbols = sorted({symbol.split("-")[0].upper() for symbol in args.symbols})
 
     dominance_path: Optional[Path] = None
-    if args.dominance_symbol:
-        dominance_path = download_binance_klines(
-            BinanceKlinesConfig(
-                symbol=args.dominance_symbol,
-                interval=args.interval,
-                start=start_date,
-                end=end_date,
-            ),
-            force=args.force,
-        )
-        if not args.quiet:
-            print(f"[data] Cached {args.dominance_symbol} dominance klines at {dominance_path}")
+    if args.dominance_inst_id:
+        try:
+            dominance_path = download_okx_candles(
+                OkxCandlesConfig(
+                    inst_id=args.dominance_inst_id,
+                    bar="1D",
+                    limit=min(max(args.days, 200), 1000),
+                ),
+                force=args.force,
+            )
+            if not args.quiet:
+                print(f"[data] Cached {args.dominance_inst_id} OKX candles at {dominance_path}")
+        except RuntimeError as exc:
+            dominance_path = None
+            if not args.quiet:
+                print(f"[warn] OKX dominance download skipped: {exc}")
 
     if macro_series:
         for series_id in macro_series:
@@ -195,8 +199,8 @@ def main() -> None:
             export_path=Path(args.export_xlsx),
             price_data=datasets,
             dominance_path=dominance_path,
-            dominance_symbol=args.dominance_symbol,
-            dominance_interval=args.interval,
+            dominance_inst_id=args.dominance_inst_id,
+            dominance_bar="1D",
             macro_series=macro_series,
             cmc_global_path=cmc_global_path,
             cmc_quotes_path=cmc_quotes_path,

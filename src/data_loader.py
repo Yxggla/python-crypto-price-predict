@@ -11,6 +11,7 @@ from typing import Any, Dict, Optional, Sequence
 import pandas as pd
 import requests
 import yfinance as yf
+from pandas.api.types import is_datetime64tz_dtype
 
 try:  # Optional import so unit tests can mock it easily.
     from pandas_datareader import data as data_reader
@@ -61,6 +62,12 @@ def _cmc_asset_output_path(symbols: Sequence[str], convert: str) -> Path:
     return ensure_data_dir() / f"cmc_quotes_{slug}_{convert.lower()}.csv"
 
 
+def _strip_timezone(series: pd.Series) -> pd.Series:
+    if is_datetime64tz_dtype(series):
+        return series.dt.tz_localize(None)
+    return series
+
+
 @dataclass
 class DownloadConfig:
     symbol: str
@@ -98,14 +105,14 @@ class CoinMarketCapAssetConfig:
 
 
 @dataclass
-class BinanceKlinesConfig:
-    """Configuration for fetching Binance kline data (e.g., BTCDOMUSDT)."""
+class OkxCandlesConfig:
+    """Configuration for fetching OKX candlestick data."""
 
-    symbol: str
-    interval: str = "1d"
-    start: Optional[date | datetime | str | int] = None
-    end: Optional[date | datetime | str | int] = None
-    limit: int = 1000
+    inst_id: str
+    bar: str = "1D"
+    after: Optional[date | datetime | str | int] = None
+    before: Optional[date | datetime | str | int] = None
+    limit: int = 200
 
 
 def download_price_history(config: DownloadConfig, force: bool = False) -> Path:
@@ -123,6 +130,8 @@ def download_price_history(config: DownloadConfig, force: bool = False) -> Path:
     if data.empty:
         raise ValueError(f"No data returned for {config.symbol}")
 
+    if isinstance(data.index, pd.DatetimeIndex) and data.index.tz is not None:
+        data.index = data.index.tz_localize(None)
     data.index.name = "date"
     data.reset_index().to_csv(output_path, index=False)
     return output_path
@@ -141,6 +150,8 @@ def load_history(symbol: str, interval: str = "1d") -> pd.DataFrame:
             f"{csv_path} not found. Fetch data with download_price_history first."
         )
     df = pd.read_csv(csv_path, parse_dates=["date"])
+    if "date" in df.columns:
+        df["date"] = _strip_timezone(df["date"])
     df.sort_values("date", inplace=True)
     df.reset_index(drop=True, inplace=True)
     return df
@@ -161,7 +172,14 @@ def download_macro_series(config: MacroSeriesConfig, force: bool = False) -> Pat
     start = pd.to_datetime(config.start)
     end = pd.to_datetime(config.end) if config.end else None
     series = data_reader.DataReader(config.series_id, config.source, start, end)
-    df = series.to_frame(name="value")
+    if isinstance(series, pd.Series):
+        df = series.to_frame(name="value")
+    else:
+        df = series.copy()
+        if len(df.columns) == 1:
+            df.columns = ["value"]
+        else:
+            df.columns = [str(col) for col in df.columns]
     df.index.name = "date"
     df.reset_index().to_csv(csv_path, index=False)
     return csv_path
@@ -172,7 +190,10 @@ def load_macro_series(series_id: str) -> pd.DataFrame:
     csv_path = _macro_output_path(series_id)
     if not csv_path.exists():
         raise FileNotFoundError(f"{csv_path} not found. Fetch data with download_macro_series first.")
-    return pd.read_csv(csv_path, parse_dates=["date"])
+    df = pd.read_csv(csv_path, parse_dates=["date"])
+    if "date" in df.columns:
+        df["date"] = _strip_timezone(df["date"])
+    return df
 
 
 def _coinmarketcap_headers(api_key: Optional[str]) -> Dict[str, str]:
@@ -229,7 +250,10 @@ def load_cmc_global_metrics(convert: str = "USD") -> pd.DataFrame:
         raise FileNotFoundError(
             f"{csv_path} not found. Fetch data with download_cmc_global_metrics first."
         )
-    return pd.read_csv(csv_path, parse_dates=["date"])
+    df = pd.read_csv(csv_path, parse_dates=["date"])
+    if "date" in df.columns:
+        df["date"] = _strip_timezone(df["date"])
+    return df
 
 
 def download_cmc_asset_quotes(config: CoinMarketCapAssetConfig, force: bool = False) -> Path:
@@ -290,54 +314,53 @@ def load_cmc_asset_quotes(symbols: Sequence[str], convert: str = "USD") -> pd.Da
         raise FileNotFoundError(
             f"{csv_path} not found. Fetch data with download_cmc_asset_quotes first."
         )
-    return pd.read_csv(csv_path, parse_dates=["date"])
+    df = pd.read_csv(csv_path, parse_dates=["date"])
+    if "date" in df.columns:
+        df["date"] = _strip_timezone(df["date"])
+    return df
 
 
-def download_binance_klines(config: BinanceKlinesConfig, force: bool = False) -> Path:
-    """Download kline/candlestick data from Binance (useful for BTC.D dominance)."""
-    csv_path = ensure_data_dir() / f"{config.symbol.lower()}_{config.interval}_binance.csv"
+def download_okx_candles(config: OkxCandlesConfig, force: bool = False) -> Path:
+    """Download candlestick data from OKX (used as BTC dominance proxy)."""
+    csv_path = ensure_data_dir() / f"{config.inst_id.lower()}_{config.bar.lower()}_okx.csv"
     if csv_path.exists() and not force:
         return csv_path
 
     params: Dict[str, Any] = {
-        "symbol": config.symbol.upper(),
-        "interval": config.interval,
+        "instId": config.inst_id.upper(),
+        "bar": config.bar,
         "limit": config.limit,
     }
-    start_ts = _to_unix_timestamp(config.start)
-    end_ts = _to_unix_timestamp(config.end)
-    if start_ts:
-        params["startTime"] = start_ts * 1000
-    if end_ts:
-        params["endTime"] = end_ts * 1000
 
-    response = requests.get("https://api.binance.com/api/v3/klines", params=params, timeout=30)
+    response = requests.get("https://www.okx.com/api/v5/market/candles", params=params, timeout=30)
     if response.status_code != 200:
         raise RuntimeError(
-            f"Binance request failed ({response.status_code}): {response.text}"
+            f"OKX request failed ({response.status_code}): {response.text}"
         )
 
-    data = response.json()
+    payload = response.json()
+    data = payload.get("data", [])
     if not data:
-        raise ValueError(f"No kline data returned for {config.symbol}")
+        raise ValueError(f"No candle data returned for {config.inst_id}")
 
-    columns = [
-        "open_time",
-        "open",
-        "high",
-        "low",
-        "close",
-        "volume",
-        "close_time",
-        "quote_asset_volume",
-        "number_of_trades",
-        "taker_buy_base_volume",
-        "taker_buy_quote_volume",
-        "ignore",
-    ]
-    df = pd.DataFrame(data, columns=columns)
-    df["date"] = pd.to_datetime(df["open_time"], unit="ms")
-    numeric_cols = ["open", "high", "low", "close", "volume"]
+    df = pd.DataFrame(
+        data,
+        columns=[
+            "ts",
+            "open",
+            "high",
+            "low",
+            "close",
+            "volume_base",
+            "volume_quote",
+            "volume_quote_currency",
+            "confirm",
+        ],
+    )
+    df["ts"] = pd.to_numeric(df["ts"], errors="coerce")
+    df.dropna(subset=["ts"], inplace=True)
+    df["date"] = pd.to_datetime(df["ts"], unit="ms")
+    numeric_cols = ["open", "high", "low", "close", "volume_base"]
     df[numeric_cols] = df[numeric_cols].apply(pd.to_numeric, errors="coerce")
     df = df[["date"] + numeric_cols]
     df.sort_values("date", inplace=True)
@@ -345,11 +368,14 @@ def download_binance_klines(config: BinanceKlinesConfig, force: bool = False) ->
     return csv_path
 
 
-def load_binance_klines(symbol: str, interval: str = "1d") -> pd.DataFrame:
-    """Load cached Binance kline data."""
-    csv_path = ensure_data_dir() / f"{symbol.lower()}_{interval}_binance.csv"
+def load_okx_candles(inst_id: str, bar: str = "1D") -> pd.DataFrame:
+    """Load cached OKX candlestick data."""
+    csv_path = ensure_data_dir() / f"{inst_id.lower()}_{bar.lower()}_okx.csv"
     if not csv_path.exists():
         raise FileNotFoundError(
-            f"{csv_path} not found. Fetch data with download_binance_klines first."
+            f"{csv_path} not found. Fetch data with download_okx_candles first."
         )
-    return pd.read_csv(csv_path, parse_dates=["date"])
+    df = pd.read_csv(csv_path, parse_dates=["date"])
+    if "date" in df.columns:
+        df["date"] = _strip_timezone(df["date"])
+    return df
