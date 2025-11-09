@@ -106,49 +106,30 @@ requirements.txt  # 依赖列表
 
 | 方向 | 价值 | 具体交付物 |
 | --- | --- | --- |
-| **用户故事与目标** | 始终强调“10 分钟内做出入场/出场决策”的场景。 | README + 幻灯片说明 Persona、决策流程以及各模块如何支撑。 |
-| **更丰富的数据覆盖** | 入场/出场需要宏观 + 市值占比信号的确认。 | 扩展 `data_loader.py` 与 CLI：拉取 SOL-USD、OKX BTC-USDT 优势代理、FRED 利率以及 CoinMarketCap 全球指标（总市值、成交量、主导率）并缓存/导出 Excel。 |
-| **更深入的指标** | 让用户看到可解释的信号，而非纯价格曲线。 | 在 `src/analysis.py` 实现滚动最大回撤、夏普比率、BTC-ETH 价差 z-score、波动率 Regime，并标注触发点。 |
-| **故事化可视化** | 决策者对视觉信息更敏感。 | Plotly 仪表盘（联动图、Regime 着色、信号注释），CLI `--save-figures` 导出 PNG/GIF。 |
-| **模型与策略** | 量化“接下来会怎样”，并指向行动。 | 新增 Prophet 或 LSTM，与 LR/ARIMA 对比；实现 MA 金叉或模型信号回测，输出资金曲线与混淆矩阵。 |
-| **叙事型 Notebook** | 证明流程可复现，可供老师审阅。 | 填充 `notebooks/01-03`：包含 Markdown 叙述、保存的结果与与 10 分钟故事对应的标注。 |
+| **叙事与目标** | 确保团队始终围绕“10 分钟判断入/出场”推进。 | README + Persona 简报、成功指标、Notebook 中指向 PPT 的小结。 |
+| **多源数据骨干** | 市值占比 + 宏观背景让信号更可信。 | 让 CLI/Excel 稳定输出 BTC/ETH/SOL、OKX BTC-USDT 蜡烛、FRED FEDFUNDS + DGS10、CoinMarketCap 全球/报价，并编制数据字典与校验脚本。 |
+| **指标与宏观洞察** | 投资者需要可解释的触发器。 | 在 `src/analysis.py` 加滚动最大回撤、夏普、BTC-ETH 价差 z-score、波动率 Regime、MA 交叉，并在 Notebook 02 解释触发逻辑。 |
+| **可视化与仪表盘** | 视觉化更易说服听众。 | 构建价格/优势/宏观/模型叠加的 Plotly Dashboard，提供 Regime 标注与 PNG/GIF 导出，直接用于 PPT。 |
+| **建模与策略** | 回答“接下来怎么走、如何操作”。 | 在线性基线外实现 Prophet/LSTM，对比误差；实现 MA 交叉 + 预测收益策略，输出资金曲线、命中率、混淆矩阵。 |
+| **Notebook 讲故事** | 最终 PPT/报告直接引用 Notebook。 | 在 `notebooks/01-03` 写完整 Markdown 解读、保存图表/表格，并注明对应的 PPT 章节。 |
 
 ## 团队分工（6 人）
 
-1. **A：项目负责人 / 叙事与报告**
-   - 维护 README 与幻灯片中的“10 分钟入场/出场”主线，定义成功指标，并确保各模块产出与目标挂钩。
-   - 收集并整理所有图表/截图，搭建报告大纲，撰写 10 分钟讲稿与讲者备注。
-   - 每周主持同步，记录阻塞事项与决策；在 README 中更新进度和任务清单。
-
-2. **B：数据采集与特征工程**
-   - 扩展 `src/data_loader.py` 支持多资产、宏观与链上数据，详细记录 ETL 步骤至 `notebooks/01_data_cleaning.ipynb`。
-   - 产出数据字典（字段含义、刷新频率、服务的决策场景）。
-   - 编写数据校验脚本（缺失、频率对齐）并在 `data/` 提供示例 CSV。
-
-3. **C：探索性分析与指标设计**
-   - 在 `src/analysis.py` 中实现最大回撤、夏普、价差 z-score、波动率 Regime 等信号与阈值。
-   - 负责 `notebooks/02_analysis.ipynb`：以 Markdown + 图表讲述指标如何提示好的/坏的入场时机。
-   - 输出精炼 Insight 交给 A，用于报告与展示。
-
-4. **D：可视化与仪表盘**
-   - 升级 `src/visualization.py`，构建 Plotly 仪表盘：价格/成交量/指标/模型信号联动，并提供 Regime 着色、操作提示。
-   - 使用 CLI `--save-figures` 生成可直接嵌入 PPT 的 PNG/GIF，一页即可覆盖关键信息。
-   - 与 F 协同，保证 demo 时仪表盘可实时或顺滑播放。
-
-5. **E：建模与回测**
-   - 在 `src/model.py` 或新增模块实现 Prophet / LSTM，与线性回归、ARIMA 对比，并在 `notebooks/03_prediction.ipynb` 记录 MAE/MAPE 等指标。
-   - 将模型输出转化为“买/卖/观望”规则（如 MA 金叉、预测收益 > 阈值），完成回测，输出资金曲线、命中率表、混淆矩阵。
-   - 总结模型在何种情景给出建议以及置信度，供 A 述说策略优劣。
-
-6. **F：集成、CLI 与 Demo 体验**
-   - 维护 `main.py` 端到端流程（拉取 → 特征 → 指标 → 模型 → 图表），新增数据源、信号阈值、导出路径等参数。
-   - 录制脚本化 CLI 演示（GIF 或终端录像），展示 Persona 如何在 10 分钟内操作系统。
-   - 负责打包与复现性（依赖、README 指南、可选 Docker），确保老师能顺利运行。
-
-## 下一步
-
-- 按角色填充 `notebooks/01-03`，补充 Markdown 解读与图形输出。
-- 视需要加入自动化测试（如 `pytest`）以覆盖关键数据转换。
-- 在完成基线后探索更高阶模型或替代数据源（CoinGecko、链上指标 API 等）。
-
-如需进一步定制任务或时间表，请随时更新本 README 或联系项目负责人。
+1. **A：数据接入负责人**
+   - 负责 `src/data_loader.py` + CLI，确保 BTC/ETH/SOL、OKX 优势蜡烛、FRED、CoinMarketCap 下载稳定并去除时区。
+   - 在 Notebook 01 编写 ETL、数据字典与校验脚本，并维持 Excel 导出结构。
+2. **B：特征工程与清洗**
+   - 在 Notebook 01 和 `src/analysis.py` 实现收益、宏观合并、价差等衍生字段，并写小测试验证样例行。
+   - 将清洗后的数据交付给指标/建模同学使用。
+3. **C：指标与宏观洞察**
+   - 在 `src/analysis.py` 增加最大回撤、夏普、波动 Regime、BTC-ETH z-score、MA 触发等函数，并在 Notebook 02 用代码+图表解释。
+   - 输出可引用的 Insight 与图像并标注对应代码单元。
+4. **D：可视化工程**
+   - 扩展 `src/visualization.py`（Plotly + Matplotlib），构建叠加价格/优势/宏观/模型信号的 Dashboard，提供导出脚本。
+   - 通过 CLI `--save-figures` 或 Notebook 生成 PNG/GIF，并说明如何用 Excel 数据复现。
+5. **E：建模算法**
+   - 负责 Notebook 03 / `src/model.py` 中的模型结构（LR/ARIMA 基线、Prophet/LSTM），调参并保存可复用的 checkpoint 或推理脚本。
+   - 记录训练与评估流程，方便他人复现指标或替换模型。
+6. **F：策略与流水线集成**
+   - 将 E 生成的预测接入回测与导出层：在 `main.py` / Excel 导出里把 MA 交叉、预测收益策略等指标串联起来。
+   - 编写 CLI/脚本展示完整流程（数据→指标→模型→策略输出），并核对每次运行是否产出预期的 CSV/Excel/图表。

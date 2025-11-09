@@ -108,44 +108,30 @@ requirements.txt  # Python dependencies
 
 | Track | Why it matters | Concrete deliverables |
 | --- | --- | --- |
-| **User story & objective** | Keep the “entry/exit decision within 10 minutes” story explicit. | README + slide describing persona, decision workflow, and how each module supports it. |
-| **Richer data coverage** | Entry/exit decisions need macro + market-share confirmation. | Extend `data_loader.py` and CLI to fetch SOL-USD, an OKX-based BTC dominance proxy, FRED rates, and CoinMarketCap global metrics (dominance, total cap, volume) with caching + Excel export. |
-| **Deeper indicators** | Users need interpretable signals, not just price charts. | Implement rolling max drawdown, Sharpe ratio, BTC–ETH spread z-score, volatility regimes, and annotate when signals trigger. |
-| **Story-driven visuals** | Decision makers grasp insights visually. | Plotly dashboard with linked charts, regime shading, signal annotations, and exportable PNG/GIF via `--save-figures`. |
-| **Models & strategies** | Quantify “what happens next” and tie it to actions. | Add Prophet or LSTM, compare with LR/ARIMA, and run MA crossover or model-signal backtests with equity curve + confusion chart. |
-| **Narrated notebooks** | Documentation must prove the workflow is reproducible. | Fill `notebooks/01-03` with markdown rationale, saved outputs, and callouts that map to the 10‑minute story. |
+| **Narrative & objectives** | Keeps everyone driving toward “10-minute entry/exit guidance.” | README + persona brief with success metrics, plus notebook callouts that tie outputs back to the story. |
+| **Multisource data spine** | Market-share + macro context makes signals credible. | Harden CLI/export for BTC/ETH/SOL, OKX BTC-USDT dominance candles, FRED FEDFUNDS + DGS10, CoinMarketCap global + quotes, and document a data dictionary with validation checks. |
+| **Indicators & macro insight** | Users need interpretable triggers. | Add rolling max drawdown, Sharpe, BTC–ETH spread z-score, volatility regimes, MA crossovers; include trigger explanations in Notebook 02. |
+| **Visualization & dashboard** | Stakeholders digest insights visually. | Plotly dashboard with price/dominance/macro/model overlays, regime shading, annotations, and exported PNG/GIF assets ready for PPT. |
+| **Modeling & strategy** | Quantifies “what happens next” and actionability. | Compare LR/ARIMA vs Prophet/LSTM, implement MA crossover + predicted-return strategies, and output equity curves + confusion matrices. |
+| **Notebook-first storytelling** | Slides/report should flow from notebooks. | Populate `notebooks/01-03` with markdown narration, saved charts/tables, and references indicating which slide/report section each asset supports. |
 
 ## Suggested team workflow
 
-1. **Person A – Project Lead, Storytelling & Reporting**
-   - Maintain the “entry/exit in 10 minutes” narrative inside README + slides, update success metrics, and ensure every module explicitly links back to the objective.
-   - Curate screenshots/figures exported by teammates, assemble the report outline, and script the 10‑minute presentation (including speaker notes).
-   - Facilitate weekly sync/checklist so each deliverable meets the persona’s needs; log blockers and decisions in `README.md`.
-2. **Person B – Data Acquisition & Feature Engineering**
-   - Extend `src/data_loader.py` to ingest additional markets (BTC-USD, ETH-USD, SOL-USD), dominance indices, FRED macro series, and on-chain metrics; document ETL steps in `notebooks/01_data_cleaning.ipynb`.
-   - Produce a data dictionary covering column definitions, refresh cadence, and how each feature supports entry/exit decisions.
-   - Implement validation scripts (missing data checks, alignment across frequencies) and share sample CSVs in `data/`.
-3. **Person C – Exploratory Analysis & Indicator Design**
-   - Enhance `src/analysis.py` with max drawdown, Sharpe, z-score spreads, volatility regimes, and turn them into “signals” with clear thresholds.
-   - Own `notebooks/02_analysis.ipynb`: narrate insights (markdown + figures) that explain how indicators anticipate good/bad entry points.
-   - Hand over concise insight summaries to Person A for inclusion in report/presentation.
-4. **Person D – Visualization & Dashboarding**
-   - Upgrade `src/visualization.py` to deliver Plotly dashboards combining price, volume, indicators, and model signals; include regime shading + tooltips explaining what to do.
-   - Build a one-pager dashboard (HTML/GIF/png) via CLI `--save-figures` so the persona can “see everything” quickly.
-   - Coordinate with Person F to ensure the dashboard animates or updates correctly during live demo.
-5. **Person E – Modeling & Backtesting**
-   - Implement Prophet or LSTM in `src/model.py` (or a dedicated module), compare against the linear regression/ARIMA baselines, and document metrics (MAE/MAPE) in `notebooks/03_prediction.ipynb`.
-   - Translate model outputs into a simple decision rule (e.g., MA crossover, predicted return > threshold) and backtest it; export equity curve, hit-rate table, and confusion chart.
-   - Summarize when the model recommends entries/exits and how confident it is, so Person A can articulate the recommendation quality.
-6. **Person F – Integration, CLI & Demo Experience**
-   - Keep `main.py` orchestrating the full workflow (fetch → features → indicators → models → charts) with flags for new data sources, signal thresholds, and export paths.
-   - Produce a scripted CLI run (recorded GIF or terminal log) that demonstrates how the persona would interact with the tool in under 10 minutes.
-   - Manage packaging (requirements, README instructions, optional Docker) so instructors can reproduce the demo.
-
-## Next steps
-
-- Populate notebooks with detailed workflows and narrative commentary.
-- Add automated tests (e.g., with `pytest`) to cover data transforms if required.
-- Integrate advanced models (Prophet, LSTM) or alternative data sources (CoinGecko, on-chain metrics) as stretch goals.
-
-Feel free to adapt or extend the structure to meet team preferences or instructor guidelines.
+1. **Person A – Data ingestion lead**
+   - Owns `src/data_loader.py` / CLI integrations to keep BTC/ETH/SOL, OKX dominance candles, FRED, and CoinMarketCap downloads healthy and timezone-clean.
+   - Maintains Notebook 01’s ETL section (data dictionary, validation snippets) and ensures Excel export schemas stay stable.
+2. **Person B – Feature engineering & cleaning**
+   - Implements derived columns (returns, spreads, macro joins) inside Notebook 01 and supporting helpers in `src/analysis.py`.
+   - Writes quick unit/notebook tests validating sample rows before data moves downstream.
+3. **Person C – Indicator & macro analytics**
+   - Extends `src/analysis.py` with rolling drawdown, Sharpe, volatility regimes, BTC–ETH z-scores, MA triggers, and documents each signal in Notebook 02 with code + commentary.
+   - Hands off summarized tables/figures that cite the exact code cell for reuse.
+4. **Person D – Visualization engineering**
+   - Develops Plotly dashboards and Matplotlib figures inside `src/visualization.py`, wiring price/dominance/macro/model overlays plus annotations.
+   - Automates figure export via CLI `--save-figures` or notebook cells, providing instructions/code for reproducing PNG/GIF assets.
+5. **Person E – Modeling algorithms**
+   - Focuses on model architectures inside Notebook 03 / `src/model.py` (LR/ARIMA baseline vs Prophet/LSTM), tuning hyperparameters and saving reusable checkpoints or inference helpers.
+   - Documents training/evaluation code so others can reproduce metrics and swap models in or out.
+6. **Person F – Strategy & pipeline integration**
+   - Takes Person E’s predictions and owns the backtesting/export layer: wiring predictions into MA crossover / predicted-return strategies, extending `main.py` + Excel exports so new metrics land in the workbook.
+   - Adds CLI/demo scripts that showcase the full pipeline (data → indicators → models → strategy outputs) and verifies each run emits the expected CSV/Excel/figure set.
