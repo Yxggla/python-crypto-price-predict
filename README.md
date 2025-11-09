@@ -40,10 +40,10 @@ requirements.txt  # Python dependencies
 ## Suggested team workflow
 
 1. **Project Lead** – Manages roadmap, coordinates notebooks, curates final report.
-2. **Data Acquisition** – Extends `data_loader.py` or builds custom notebook to fetch additional assets or features.
-3. **Data Analysis** – Uses `notebooks/01_data_cleaning.ipynb` to clean and compute descriptive statistics using `src.analysis`.
-4. **Visualisation** – Leverages `src.visualization` within `notebooks/02_analysis.ipynb` to produce course-ready figures (e.g., Plotly dashboards or Matplotlib charts).
-5. **Modelling** – Experiments with `src.model` and develops advanced predictors (ARIMA variants, LSTM prototypes) in `notebooks/03_prediction.ipynb`.
+2. **Data Acquisition** *shanshan* – Extends `data_loader.py` or builds custom notebook to fetch additional assets or features.
+3. **Data Analysis** *li*  – Uses `notebooks/01_data_cleaning.ipynb` to clean and compute descriptive statistics using `src.analysis`.
+4. **Visualisation** *nn* – Leverages `src.visualization` within `notebooks/02_analysis.ipynb` to produce course-ready figures (e.g., Plotly dashboards or Matplotlib charts).
+5. **Modelling**  *csn* *hy* – Experiments with `src.model` and develops advanced predictors (ARIMA variants, LSTM prototypes) in `notebooks/03_prediction.ipynb`.
 6. **Reporting** – Consolidates findings into `report.pdf` and `presentation.pptx`, sourcing visuals and summary tables from notebooks.
 
 ## Next steps
