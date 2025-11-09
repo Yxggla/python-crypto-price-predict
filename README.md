@@ -37,17 +37,65 @@ requirements.txt  # Python dependencies
 
 ## Module overview
 
-- `src/data_loader.py` — Handles data downloads via `yfinance`, caching, and CSV loading.
+- `src/data_loader.py` — Handles crypto price downloads (yfinance), Binance dominance klines, FRED macro series, and CoinMarketCap global/asset metrics with CSV caching.
 - `src/analysis.py` — Computes daily returns, rolling volatility, and cross-asset correlations.
 - `src/visualization.py` — Provides Matplotlib and Plotly helpers (price trends with volume overlays, candlestick charts, actual-vs-predicted plots).
 - `src/model.py` — Implements a linear-regression baseline plus an ARIMA helper for time-series forecasting.
+
+## Data acquisition cookbook
+
+> **Environment prerequisites**
+> - `pip install -r requirements.txt` now includes `pandas-datareader` for FRED downloads.
+> - Set `export COINMARKETCAP_API_KEY=...` (e.g., `export COINMARKETCAP_API_KEY=1c991b9a-1d45-4d60-99a7-73341234eb30`) before requesting CoinMarketCap data.
+
+1. **Price history (BTC / ETH / SOL)**  
+   ```python
+   from datetime import date, timedelta
+   from src.data_loader import DownloadConfig, download_price_histories
+
+   today = date.today()
+   start = today - timedelta(days=730)
+   configs = [
+       DownloadConfig("BTC-USD", start, today),
+       DownloadConfig("ETH-USD", start, today),
+       DownloadConfig("SOL-USD", start, today),
+   ]
+   download_price_histories(configs)
+   ```
+2. **BTC dominance (Binance BTCDOMUSDT klines)**  
+   ```python
+   from src.data_loader import BinanceKlinesConfig, download_binance_klines
+   download_binance_klines(BinanceKlinesConfig(symbol="BTCDOMUSDT", interval="1d"))
+   ```
+   Output CSV columns: `date, open, high, low, close, volume`.
+3. **Macro series (e.g., Fed Funds Rate from FRED)**  
+   ```python
+   from src.data_loader import MacroSeriesConfig, download_macro_series
+   download_macro_series(MacroSeriesConfig(series_id="FEDFUNDS", start="2010-01-01"))
+   ```
+   Provide `api_key` or set `FRED_API_KEY` if your FRED account requires it.
+4. **CoinMarketCap metrics (global dominance + latest quotes)**  
+   ```python
+   from src.data_loader import (
+       CoinMarketCapGlobalConfig,
+       CoinMarketCapAssetConfig,
+       download_cmc_global_metrics,
+       download_cmc_asset_quotes,
+   )
+
+   download_cmc_global_metrics(CoinMarketCapGlobalConfig(convert="USD"))
+   download_cmc_asset_quotes(
+       CoinMarketCapAssetConfig(symbols=["BTC", "ETH", "SOL"], convert="USD")
+   )
+   ```
+   Requires `COINMARKETCAP_API_KEY`. Global CSV provides dominance/total cap/volume; quotes CSV stores price, market cap, and percent changes per symbol.
 
 ## Planned extensions (aligned to the objective)
 
 | Track | Why it matters | Concrete deliverables |
 | --- | --- | --- |
 | **User story & objective** | Keep the “entry/exit decision within 10 minutes” story explicit. | README + slide describing persona, decision workflow, and how each module supports it. |
-| **Richer data coverage** | Entry/exit decisions need macro + on-chain confirmation. | Extend `data_loader.py` to fetch SOL-USD, BTC.D dominance, FRED rates, ETH active addresses, and exchange net inflow CSVs with caching. |
+| **Richer data coverage** | Entry/exit decisions need macro + market-share confirmation. | Extend `data_loader.py` to fetch SOL-USD, BTC.D dominance, FRED rates, and CoinMarketCap global metrics (dominance, total cap, volume) with caching. |
 | **Deeper indicators** | Users need interpretable signals, not just price charts. | Implement rolling max drawdown, Sharpe ratio, BTC–ETH spread z-score, volatility regimes, and annotate when signals trigger. |
 | **Story-driven visuals** | Decision makers grasp insights visually. | Plotly dashboard with linked charts, regime shading, signal annotations, and exportable PNG/GIF via `--save-figures`. |
 | **Models & strategies** | Quantify “what happens next” and tie it to actions. | Add Prophet or LSTM, compare with LR/ARIMA, and run MA crossover or model-signal backtests with equity curve + confusion chart. |
