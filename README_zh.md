@@ -115,21 +115,21 @@ requirements.txt  # 依赖列表
 
 ## 团队分工（6 人）
 
-1. **A：数据接入负责人**
+1. **A：数据接入负责人(dyx)**
    - 负责 `src/data_loader.py` + CLI，确保 BTC/ETH/SOL、OKX 优势蜡烛、FRED、CoinMarketCap 下载稳定并去除时区。
    - 在 Notebook 01 编写 ETL、数据字典与校验脚本，并维持 Excel 导出结构。
-2. **B：特征工程与清洗**
+2. **B：特征工程与清洗(shanshan)**
    - 在 Notebook 01 和 `src/analysis.py` 实现收益、宏观合并、价差等衍生字段，并写小测试验证样例行。
    - 将清洗后的数据交付给指标/建模同学使用。
-3. **C：指标与宏观洞察**
+3. **C：指标与宏观洞察(li)**
    - 在 `src/analysis.py` 增加最大回撤、夏普、波动 Regime、BTC-ETH z-score、MA 触发等函数，并在 Notebook 02 用代码+图表解释。
    - 输出可引用的 Insight 与图像并标注对应代码单元。
-4. **D：可视化工程**
+4. **D：可视化工程(nyc)**
    - 扩展 `src/visualization.py`（Plotly + Matplotlib），构建叠加价格/优势/宏观/模型信号的 Dashboard，提供导出脚本。
    - 通过 CLI `--save-figures` 或 Notebook 生成 PNG/GIF，并说明如何用 Excel 数据复现。
-5. **E：建模算法**
+5. **E：建模算法(csn)**
    - 负责 Notebook 03 / `src/model.py` 中的模型结构（LR/ARIMA 基线、Prophet/LSTM），调参并保存可复用的 checkpoint 或推理脚本。
    - 记录训练与评估流程，方便他人复现指标或替换模型。
-6. **F：策略与流水线集成**
+6. **F：策略与流水线集成(hy)**
    - 将 E 生成的预测接入回测与导出层：在 `main.py` / Excel 导出里把 MA 交叉、预测收益策略等指标串联起来。
    - 编写 CLI/脚本展示完整流程（数据→指标→模型→策略输出），并核对每次运行是否产出预期的 CSV/Excel/图表。
