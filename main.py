@@ -103,11 +103,15 @@ def main() -> None:
         )
         df = load_history(symbol, args.interval).copy()
         df["symbol"] = symbol
+        df["change_abs"] = df["Close"] - df["Open"]
+        df["change_pct"] = (df["change_abs"] / df["Open"]) * 100
+        df.loc[df["Open"] == 0, "change_pct"] = pd.NA
+        df.to_csv(csv_path, index=False)
         datasets[symbol] = df
         print(f"[data] Cached {symbol} price history at {csv_path}")
 
         save_path = figures_dir / f"{symbol.lower()}_price.png"
-        plot_price_history(df, symbol, save_path=save_path, window=365)
+        plot_price_history(df, symbol, save_path=save_path, window=180)
 
         vol = summarize_volatility(df)
         print(f"{symbol} latest volatility snapshot:")

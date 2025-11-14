@@ -6,8 +6,11 @@ from pathlib import Path
 from typing import Optional
 
 import matplotlib.pyplot as plt
+import numpy as np
 import pandas as pd
 import plotly.graph_objects as go
+from matplotlib.patches import Patch
+from matplotlib.ticker import FuncFormatter
 from plotly.subplots import make_subplots
 
 
@@ -23,7 +26,7 @@ def plot_price_history(
     ax: Optional[plt.Axes] = None,
     show_volume: bool = True,
     save_path: Optional[Path] = None,
-    window: Optional[int] = None,
+    window: Optional[int] = 90,
 ) -> plt.Axes:
     """Plot closing price with moving averages and optional volume bars."""
     if ax is None:
@@ -31,21 +34,37 @@ def plot_price_history(
     else:
         fig = ax.figure
 
-    plot_df = df.tail(window) if window else df
+    plot_df = df.tail(window).copy() if window else df.copy()
 
-    ax.plot(plot_df["date"], plot_df["Close"], label=f"{symbol} Close")
-    for window in (7, 30):
-        ma = plot_df["Close"].rolling(window).mean()
-        ax.plot(plot_df["date"], ma, label=f"MA{window}")
+    plot_df["ma7"] = plot_df["Close"].rolling(7).mean()
+    plot_df["ma30"] = plot_df["Close"].rolling(30).mean()
+
+    base_line, = ax.plot(plot_df["date"], plot_df["Close"], color="gray", alpha=0.35, linewidth=1)
+
+    trend_mask = (plot_df["Close"] >= plot_df["ma30"]).fillna(False)
+    close_up = plot_df["Close"].where(trend_mask)
+    close_down = plot_df["Close"].where(~trend_mask)
+    ax.plot(plot_df["date"], close_up, color="#2e7d32", linewidth=2, label=f"{symbol} Close (bull)")
+    ax.plot(plot_df["date"], close_down, color="#c62828", linewidth=2, label=f"{symbol} Close (bear)")
+
+    ax.plot(plot_df["date"], plot_df["ma7"], label="MA7", color="#1976d2", linestyle="--")
+    ax.plot(plot_df["date"], plot_df["ma30"], label="MA30", color="#ffa000", linestyle="--")
     ax.set_xlabel("Date")
     ax.set_ylabel("Price (USD)")
-    ax.legend()
     ax.set_title(f"{symbol} price history")
 
+    volume_handles: list[Patch] = []
     if show_volume and "Volume" in plot_df.columns:
         ax2 = ax.twinx()
-        ax2.bar(plot_df["date"], plot_df["Volume"], alpha=0.2, color="tab:gray", label="Volume")
-        ax2.set_ylabel("Volume")
+        up_mask = (plot_df["Close"] >= plot_df["Open"]).fillna(False)
+        colors = np.where(up_mask, "#26a69a", "#d32f2f")
+        ax2.bar(plot_df["date"], plot_df["Volume"], alpha=0.28, color=colors, label="Volume")
+        ax2.set_ylabel("Volume (M)")
+        ax2.yaxis.set_major_formatter(FuncFormatter(lambda val, _: f"{val/1e6:.0f}M"))
+        volume_handles = [
+            Patch(facecolor="#26a69a", alpha=0.4, label="Volume↑ (Close ≥ Open)"),
+            Patch(facecolor="#d32f2f", alpha=0.4, label="Volume↓ (Close < Open)"),
+        ]
         ax2.grid(False)
         ax2.margins(x=0)
         # Ensure line chart stays on top.
@@ -53,6 +72,26 @@ def plot_price_history(
         ax.patch.set_visible(False)
 
     ax.grid(alpha=0.2)
+
+    # Highlight top volume days
+    if show_volume and "Volume" in plot_df.columns and not plot_df["Volume"].isna().all():
+        top_volume = plot_df.nlargest(3, "Volume")
+        for _, row in top_volume.iterrows():
+            ax.axvspan(
+                row["date"] - pd.Timedelta(days=0.4),
+                row["date"] + pd.Timedelta(days=0.4),
+                color="#ff7043",
+                alpha=0.12,
+            )
+
+    # Remove MA crossover arrows per latest request
+
+    handles, labels = ax.get_legend_handles_labels()
+    if volume_handles:
+        handles.extend(volume_handles)
+        labels.extend([h.get_label() for h in volume_handles])
+    ax.legend(handles, labels)
+
     fig.autofmt_xdate()
     _maybe_save(fig, save_path)
     return ax

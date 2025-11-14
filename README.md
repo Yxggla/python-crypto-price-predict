@@ -83,7 +83,7 @@ requirements.txt  # Python dependencies
 
 - **Excel price sheet** — Every symbol’s yfinance OHLCV history now includes two extra columns: `change_abs` (Close − Open) and `change_pct` (percentage change from the day’s open). These appear in the `prices` worksheet next to the raw K-line data.
 - **Interactive K-line** — Hovering a candlestick shows Open/High/Low/Close plus the exact daily change and percentage change, making it easy to read the move without manual math.
-- **Price vs MA chart (365 days)** — The Matplotlib chart in `figures/<symbol>_price.png` focuses on the most recent 365 sessions so MA7/MA30 crossovers and volume shifts remain legible even when the download spans 2000+ days.
+- **Price vs MA chart (90 days)** — The Matplotlib chart in `figures/<symbol>_price.png` zooms into the latest 90 sessions, color-codes bull/bear regimes (Close vs MA30), draws both MA7 / MA30 as dashed overlays, shades the top-volume days, and shows teal/red volume bars (with a legend) depending on whether the session closed up or down; the volume axis now uses human-friendly million units instead of `1e11`-style ticks.
 
 ## Planned extensions (aligned to the objective)
 
