@@ -10,7 +10,7 @@ Our 10‑minute presentation (and the supporting system) must therefore help a n
 ## Project layout
 
 ```
-data/             # Cached CSV downloads from Yahoo Finance
+data/             # Cached CSV downloads from yfinance + OKX helpers
 notebooks/        # Jupyter notebooks for each analysis stage (to be authored by the team)
 src/              # Reusable Python modules for data loading, analytics, viz, and modelling
 main.py           # CLI entry point that runs the end-to-end workflow
@@ -28,40 +28,17 @@ requirements.txt  # Python dependencies
    ```bash
    pip install -r requirements.txt
    ```
-3. Provide required API credentials (CoinMarketCap in this phase). You can either export it in your shell or store it in a local `.env` file (ignored by git) and `source` it before running commands:
+3. Run the CLI to fetch yfinance OHLCV, OKX dominance candles, figures, and models in one go (use `--macro-series none` to skip macro pulls entirely). Set `--days` to **2000 or more** so each symbol has at least ~2000 rows of history:
    ```bash
-   # option A: export
-   export COINMARKETCAP_API_KEY="<your-coinmarketcap-key>"
-
-   # option B: create .env (same folder) and load it into the shell
-   echo 'COINMARKETCAP_API_KEY="<your-coinmarketcap-key>"' >> .env
-   set -a; source .env; set +a
-   ```
-4. Run the CLI to fetch data, compute metrics, fit a baseline model, and preview outputs:
-   ```bash
-   python main.py --symbols BTC-USD ETH-USD SOL-USD --days 730 --interval 1d \
+   python main.py --symbols BTC-USD ETH-USD SOL-USD --days 2000 --interval 1d \
+     --dominance-inst-id BTC-USDT --macro-series none \
      --export-xlsx exports/crypto_dashboard.xlsx
    ```
-   Use `--force` to refresh cached CSV files in `data/`.
-   Add `--save-figures` to persist Matplotlib charts (price trends, actual-vs-predicted) to the `figures/` directory for later use in reports or slides.
-   Add `--plotly-kline --show-kline` to render the polished Plotly candlestick chart in a browser (pair it with `--save-figures` to keep HTML exports such as `figures/btc-usd_kline.html`).
-   Add `--quiet` if you only want cached files + charts without console tables.
-   Use `--macro-series DGS10` (or `--macro-series none`) to control FRED pulls, `--dominance-inst-id BTC-USDT` to switch OKX dominance proxies, and `--skip-cmc` if you do not want CoinMarketCap metrics.
-
-### Quick candlestick preview
-
-Once you've run the CLI and cached price data, you can regenerate the interactive K-line without writing a notebook:
-
-```bash
-python main.py --symbols BTC-USD --days 365 --interval 1d \
-  --plotly-kline --show-kline --save-figures
-```
-
-This command both opens the chart in a browser window and writes an HTML copy to `figures/btc-usd_kline.html` (thanks to `--save-figures`).
+   The CLI always emits Matplotlib PNGs, Plotly HTML files, and interactive charts. Add `--force` to refresh cached CSVs, and use `--dominance-inst-id` to switch OKX sources.
 
 ## Module overview
 
-- `src/data_loader.py` — Handles crypto price downloads (yfinance), OKX dominance candles, FRED macro series, and CoinMarketCap global/asset metrics with CSV caching.
+- `src/data_loader.py` — Handles yfinance price pulls plus OKX dominance candles with CSV caching.
 - `src/analysis.py` — Computes daily returns, rolling volatility, cross-asset correlations, and open-to-close period performance.
 - `src/visualization.py` — Provides Matplotlib and Plotly helpers (price trends with volume overlays, candlestick charts, actual-vs-predicted plots).
 - `src/model.py` — Implements a linear-regression baseline plus an ARIMA helper for time-series forecasting.
@@ -69,18 +46,24 @@ This command both opens the chart in a browser window and writes an HTML copy to
 ## Data acquisition cookbook
 
 > **Environment prerequisites**
-> - `pip install -r requirements.txt` now includes `pandas-datareader` for FRED downloads.
-> - Set `export COINMARKETCAP_API_KEY=<your-key>` (or load it from `.env`) before requesting CoinMarketCap data.
+> - `pip install -r requirements.txt` already covers yfinance/OKX helpers.
 >
-> The CLI automatically runs the same helpers (OKX BTC-USDT dominance proxy, FRED series, CoinMarketCap metrics) and can bundle everything into Excel via `--export-xlsx`. The snippets below are for ad-hoc or notebook use.
+> The CLI automatically runs the same helpers (yfinance OHLCV downloads + OKX BTC-USDT dominance proxy) and can bundle everything into Excel via `--export-xlsx`. The snippets below are for ad-hoc or notebook use.
 
-1. **Price history (BTC / ETH / SOL)**  
+### Data origin cheat sheet
+
+- **yfinance** — Supplies OHLCV price history for every symbol passed via `--symbols` (e.g., `BTC-USD`, `ETH-USD`, `SOL-USD`). These rows populate the price charts, period stats, correlations, and model training data.
+- **OKX public API** — Supplies the BTC-USDT dominance proxy (`open/high/low/close/volume_base`) via `download_okx_candles`. This dataset feeds the dominance exports/plots.
+
+### Cookbook
+
+1. **Price history via yfinance (BTC / ETH / SOL)**  
    ```python
    from datetime import date, timedelta
    from src.data_loader import DownloadConfig, download_price_histories
 
    today = date.today()
-   start = today - timedelta(days=730)
+   start = today - timedelta(days=2000)
    configs = [
        DownloadConfig("BTC-USD", start, today),
        DownloadConfig("ETH-USD", start, today),
@@ -94,34 +77,14 @@ This command both opens the chart in a browser window and writes an HTML copy to
    download_okx_candles(OkxCandlesConfig(inst_id="BTC-USDT", bar="1D"))
    ```
    Output CSV columns: `date, open, high, low, close, volume_base`.
-3. **Macro series (e.g., Fed Funds Rate from FRED)**  
-   ```python
-   from src.data_loader import MacroSeriesConfig, download_macro_series
-   download_macro_series(MacroSeriesConfig(series_id="FEDFUNDS", start="2010-01-01"))
-   ```
-   Provide `api_key` or set `FRED_API_KEY` if your FRED account requires it.
-4. **CoinMarketCap metrics (global dominance + latest quotes)**  
-   ```python
-   from src.data_loader import (
-       CoinMarketCapGlobalConfig,
-       CoinMarketCapAssetConfig,
-       download_cmc_global_metrics,
-       download_cmc_asset_quotes,
-   )
-
-   download_cmc_global_metrics(CoinMarketCapGlobalConfig(convert="USD"))
-   download_cmc_asset_quotes(
-       CoinMarketCapAssetConfig(symbols=["BTC", "ETH", "SOL"], convert="USD")
-   )
-   ```
-   Requires `COINMARKETCAP_API_KEY`. Global CSV provides dominance/total cap/volume; quotes CSV stores price, market cap, and percent changes per symbol.
+3. *(reserved for future sources)* 当前 CLI 仅依赖 yfinance + OKX，如需补充其它指标，可在此扩展。
 
 ## Planned extensions (aligned to the objective)
 
 | Track | Why it matters | Concrete deliverables |
 | --- | --- | --- |
 | **Narrative & objectives** | Keeps everyone driving toward “10-minute entry/exit guidance.” | README + persona brief with success metrics, plus notebook callouts that tie outputs back to the story. |
-| **Multisource data spine** | Market-share + macro context makes signals credible. | Harden CLI/export for BTC/ETH/SOL, OKX BTC-USDT dominance candles, FRED FEDFUNDS + DGS10, CoinMarketCap global + quotes, and document a data dictionary with validation checks. |
+| **Multisource data spine** | Market-share context makes signals credible. | Harden CLI/export for BTC-USD/ETH-USD/SOL-USD (yfinance) plus OKX BTC-USDT dominance candles, and document a data dictionary with validation checks. |
 | **Indicators & macro insight** | Users need interpretable triggers. | Add rolling max drawdown, Sharpe, BTC–ETH spread z-score, volatility regimes, MA crossovers; include trigger explanations in Notebook 02. |
 | **Visualization & dashboard** | Stakeholders digest insights visually. | Plotly dashboard with price/dominance/macro/model overlays, regime shading, annotations, and exported PNG/GIF assets ready for PPT. |
 | **Modeling & strategy** | Quantifies “what happens next” and actionability. | Compare LR/ARIMA vs Prophet/LSTM, implement MA crossover + predicted-return strategies, and output equity curves + confusion matrices. |
@@ -130,7 +93,7 @@ This command both opens the chart in a browser window and writes an HTML copy to
 ## Suggested team workflow
 
 1. **Person A – Data ingestion lead**
-   - Owns `src/data_loader.py` / CLI integrations to keep BTC/ETH/SOL, OKX dominance candles, FRED, and CoinMarketCap downloads healthy and timezone-clean.
+   - Owns `src/data_loader.py` / CLI integrations to keep yfinance BTC/ETH/SOL pulls and OKX dominance candles healthy and timezone-clean.
    - Maintains Notebook 01’s ETL section (data dictionary, validation snippets) and ensures Excel export schemas stay stable.
 2. **Person B – Feature engineering & cleaning**
    - Implements derived columns (returns, spreads, macro joins) inside Notebook 01 and supporting helpers in `src/analysis.py`.

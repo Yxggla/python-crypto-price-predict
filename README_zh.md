@@ -10,7 +10,7 @@
 ## 项目结构
 
 ```
-data/             # 通过 yfinance 缓存的 CSV
+data/             # 缓存 yfinance / OKX 拉取的 CSV
 notebooks/        # 分阶段的 Jupyter Notebook（由各角色撰写）
 src/              # 数据加载、分析、可视化、建模模块
 main.py           # 端到端 CLI 入口
@@ -28,40 +28,17 @@ requirements.txt  # 依赖列表
    ```bash
    pip install -r requirements.txt
    ```
-3. 配置必要的 API Key（当前需要 CoinMarketCap）。可以直接 `export`，或在 `.env` 文件中写入并 `source`：
+3. 运行 CLI，一次性完成 yfinance OHLCV、OKX 优势蜡烛、图表与模型（通过 `--macro-series none` 完全跳过宏观数据）。`--days` 请设置为 **2000 及以上**，保证每个币种都有 >2000 条历史记录：
    ```bash
-   # 方式 A：直接 export
-   export COINMARKETCAP_API_KEY="<你的 CoinMarketCap Key>"
-
-   # 方式 B：写入 .env 并加载
-   echo 'COINMARKETCAP_API_KEY="<你的 CoinMarketCap Key>"' >> .env
-   set -a; source .env; set +a
-   ```
-4. 运行 CLI，完成数据拉取、指标计算、基线建模与结果预览：
-   ```bash
-   python main.py --symbols BTC-USD ETH-USD SOL-USD --days 730 --interval 1d \
+   python main.py --symbols BTC-USD ETH-USD SOL-USD --days 2000 --interval 1d \
+     --dominance-inst-id BTC-USDT --macro-series none \
      --export-xlsx exports/crypto_dashboard.xlsx
    ```
-   - 使用 `--force` 刷新 `data/` 目录中的缓存 CSV。
-   - 加上 `--save-figures` 将价格走势、预测对比等图表保存到 `figures/`，方便报告或幻灯片使用。
-   - `--plotly-kline --show-kline` 会直接生成并弹出交互式 Plotly K 线图；若同时加上 `--save-figures`，会把 HTML 导出到如 `figures/btc-usd_kline.html`。
-   - `--quiet` 可关闭 CLI 中的表格打印，直接生成缓存文件/图表。
-   - `--macro-series DGS10`（或 `--macro-series none`）控制 FRED 指标，`--dominance-inst-id BTC-USDT` 切换 OKX 优势代理，`--skip-cmc` 可跳过 CoinMarketCap 下载。
-
-### 快速预览交互式 K 线
-
-在完成一次 CLI 数据拉取后，可随时用下面的命令重新生成炫酷 K 线（无需额外脚本/Notebook）：
-
-```bash
-python main.py --symbols BTC-USD --days 365 --interval 1d \
-  --plotly-kline --show-kline --save-figures
-```
-
-命令会自动在浏览器打开图表，并在 `figures/btc-usd_kline.html` 中保留副本（依赖 `--save-figures`）。
+   程序会自动生成 Matplotlib PNG、Plotly HTML，并弹出交互式图表；`--force` 会强制重拉 CSV，`--dominance-inst-id` 用于切换 OKX 配置。
 
 ## 模块概览
 
-- `src/data_loader.py` —— 覆盖 yfinance 价格、OKX BTC-USDT 蜡烛（用作 BTC.D 代理）、FRED 宏观序列及 CoinMarketCap 全球/资产指标，统一缓存到 CSV。
+- `src/data_loader.py` —— 统一封装 yfinance 价格与 OKX BTC-USDT 蜡烛，全部缓存为 CSV。
 - `src/analysis.py` —— 计算日收益、滚动波动率、跨资产相关性，以及从首开到末收的整体涨跌幅。
 - `src/visualization.py` —— 提供价格 + 成交量、多均线、蜡烛图、预测对比等 Matplotlib/Plotly 辅助函数。
 - `src/model.py` —— 实现线性回归基线与 ARIMA，后续可扩展到 Prophet/LSTM。
@@ -69,18 +46,26 @@ python main.py --symbols BTC-USD --days 365 --interval 1d \
 ## 数据采集速查
 
 > **环境准备**
-> - `requirements.txt` 已包含 `pandas-datareader`，用于 FRED 拉取。
-> - 使用 CoinMarketCap 时，请先 `export COINMARKETCAP_API_KEY=<你的密钥>`（或在 `.env` 中加载）。
+> - `requirements.txt` 已包含 yfinance / requests 相关依赖，开箱即用。
 >
-> CLI 默认会调用这些助手函数（OKX BTC-USDT 优势代理、FRED、CoinMarketCap），并可通过 `--export-xlsx` 一次性导出 Excel。下面的示例更适合单独 Notebook 或脚本调试。
+> CLI 默认会调用这些助手函数：
+> - yfinance —— 提供 `--symbols` 中每个币种的 OHLCV 历史，驱动价格图、收益统计、模型训练；
+> - OKX 公共 API —— 通过 `download_okx_candles` 提供 BTC-USDT 优势蜡烛 (`open/high/low/close/volume_base`)，用于 dominance 相关导出。
+>
+> 下面的示例更适合单独 Notebook 或脚本调试。
 
-1. **币价历史（BTC / ETH / SOL）**  
+### 数据来源速览
+
+- **yfinance**：BTC-USD、ETH-USD、SOL-USD 等所有价格序列。
+- **OKX**：BTC-USDT dominance 蜡烛，仅用于优势度可视化/导出。
+
+1. **币价历史（yfinance）**  
    ```python
    from datetime import date, timedelta
    from src.data_loader import DownloadConfig, download_price_histories
 
    today = date.today()
-   start = today - timedelta(days=730)
+   start = today - timedelta(days=2000)
    configs = [
        DownloadConfig("BTC-USD", start, today),
        DownloadConfig("ETH-USD", start, today),
@@ -94,32 +79,14 @@ python main.py --symbols BTC-USD --days 365 --interval 1d \
    download_okx_candles(OkxCandlesConfig(inst_id="BTC-USDT", bar="1D"))
    ```
    生成的 CSV 含 `date, open, high, low, close, volume_base`。
-3. **宏观序列（示例：联邦基金利率 FEDFUNDS）**  
-   ```python
-   from src.data_loader import MacroSeriesConfig, download_macro_series
-   download_macro_series(MacroSeriesConfig(series_id="FEDFUNDS", start="2010-01-01"))
-   ```
-   如 FRED 要求 API Key，可在 config 里传 `api_key` 或设置 `FRED_API_KEY`。
-4. **CoinMarketCap 指标（全球市值 + 即时报价）**  
-   ```python
-   from src.data_loader import (
-       CoinMarketCapGlobalConfig,
-       CoinMarketCapAssetConfig,
-       download_cmc_global_metrics,
-       download_cmc_asset_quotes,
-   )
-
-   download_cmc_global_metrics(CoinMarketCapGlobalConfig(convert="USD"))
-   download_cmc_asset_quotes(CoinMarketCapAssetConfig(symbols=["BTC", "ETH", "SOL"], convert="USD"))
-   ```
-   需要 `COINMARKETCAP_API_KEY`。全球 CSV 提供总市值、主导率、成交量；报价 CSV 则包含各币种价格、市值与涨跌幅。
+3. *（预留）* 当前 CLI 仅依赖 yfinance + OKX，如需新增指标，可在此扩展。
 
 ## 对齐目标的扩展计划
 
 | 方向 | 价值 | 具体交付物 |
 | --- | --- | --- |
 | **叙事与目标** | 确保团队始终围绕“10 分钟判断入/出场”推进。 | README + Persona 简报、成功指标、Notebook 中指向 PPT 的小结。 |
-| **多源数据骨干** | 市值占比 + 宏观背景让信号更可信。 | 让 CLI/Excel 稳定输出 BTC/ETH/SOL、OKX BTC-USDT 蜡烛、FRED FEDFUNDS + DGS10、CoinMarketCap 全球/报价，并编制数据字典与校验脚本。 |
+| **多源数据骨干** | 市场占比背景让信号更可信。 | 让 CLI/Excel 稳定输出 yfinance BTC-USD/ETH-USD/SOL-USD 与 OKX BTC-USDT 蜡烛，并编制数据字典与校验脚本。 |
 | **指标与宏观洞察** | 投资者需要可解释的触发器。 | 在 `src/analysis.py` 加滚动最大回撤、夏普、BTC-ETH 价差 z-score、波动率 Regime、MA 交叉，并在 Notebook 02 解释触发逻辑。 |
 | **可视化与仪表盘** | 视觉化更易说服听众。 | 构建价格/优势/宏观/模型叠加的 Plotly Dashboard，提供 Regime 标注与 PNG/GIF 导出，直接用于 PPT。 |
 | **建模与策略** | 回答“接下来怎么走、如何操作”。 | 在线性基线外实现 Prophet/LSTM，对比误差；实现 MA 交叉 + 预测收益策略，输出资金曲线、命中率、混淆矩阵。 |
@@ -128,7 +95,7 @@ python main.py --symbols BTC-USD --days 365 --interval 1d \
 ## 团队分工（6 人）
 
 1. **A：数据接入负责人(dyx)**
-   - 负责 `src/data_loader.py` + CLI，确保 BTC/ETH/SOL、OKX 优势蜡烛、FRED、CoinMarketCap 下载稳定并去除时区。
+   - 负责 `src/data_loader.py` + CLI，确保 yfinance BTC/ETH/SOL 与 OKX 优势蜡烛下载稳定并去除时区。
    - 在 Notebook 01 编写 ETL、数据字典与校验脚本，并维持 Excel 导出结构。
 2. **B：特征工程与清洗(shanshan)**
    - 在 Notebook 01 和 `src/analysis.py` 实现收益、宏观合并、价差等衍生字段，并写小测试验证样例行。
