@@ -5,7 +5,7 @@ This project provides a reproducible workflow for downloading, analysing, visual
 ## Problem statement & objective
 
 Retail crypto investors often jump between apps to answer three questions before taking action: *Is the market trending? Is volatility acceptable? Do complementary signals confirm my intuition?*  
-Our 10‑minute presentation (and the supporting system) must therefore help a novice investor decide whether to **enter, hold, or exit** BTC/ETH positions within a single dashboard + report bundle. Every deliverable below links back to that north star.
+Our refreshed goal is to hand an investor a **10-minute trend briefing** that stitches together: (1) full-history daily K-lines from yfinance, (2) a zoomed 90-day Price/MA+volume panel that highlights bull/bear regimes, (3) notebook-ready indicators such as rolling max drawdown, Sharpe, BTC–ETH spread z-scores, volatility regimes, MA crossover triggers, and (4) short-horizon forecasts that answer “what’s next and how should I act?”. Every deliverable below links back to that north star.
 
 ## Project layout
 
@@ -84,6 +84,8 @@ requirements.txt  # Python dependencies
 - **Excel price sheet** — Every symbol’s yfinance OHLCV history now includes two extra columns: `change_abs` (Close − Open) and `change_pct` (percentage change from the day’s open). These appear in the `prices` worksheet next to the raw K-line data.
 - **Interactive K-line** — Hovering a candlestick shows Open/High/Low/Close plus the exact daily change and percentage change, making it easy to read the move without manual math.
 - **Price vs MA chart (90 days)** — The Matplotlib chart in `figures/<symbol>_price.png` zooms into the latest 90 sessions, color-codes bull/bear regimes (Close vs MA30), draws both MA7 / MA30 as dashed overlays, shades the top-volume days, and shows teal/red volume bars (with a legend) depending on whether the session closed up or down; the volume axis now uses human-friendly million units instead of `1e11`-style ticks.
+- **Indicator panel** — Each run also saves `figures/<symbol>_indicator_panel.png`,一个三联图，分别解释：① 价格 + 波动率 Regime（背景颜色）, ② 滚动最大回撤, ③ 滚动 Sharpe。面板标题直接告诉用户指标意图，让 10 分钟阅读更加直观。
+- **Signal snapshot** — CLI output now reports each symbol’s active volatility regime, rolling max drawdown, rolling Sharpe, MA7/MA30 state, plus the current BTC–ETH spread z-score so Notebook 02 can reference the exact trigger context.
 
 ## Planned extensions (aligned to the objective)
 

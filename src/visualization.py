@@ -97,6 +97,73 @@ def plot_price_history(
     return ax
 
 
+def plot_indicator_panel(
+    df: pd.DataFrame,
+    symbol: str,
+    save_path: Optional[Path] = None,
+    window: int = 120,
+) -> None:
+    """Create a multi-panel chart that explains each derived signal."""
+
+    required_cols = {"Close", "ma_7", "ma_30", "rolling_max_drawdown", "rolling_sharpe", "vol_regime"}
+    missing = required_cols - set(df.columns)
+    if missing:
+        raise KeyError(f"plot_indicator_panel requires missing columns: {', '.join(sorted(missing))}")
+
+    panel_df = df.tail(window).copy() if window else df.copy()
+
+    fig, axes = plt.subplots(3, 1, figsize=(12, 10), sharex=True)
+    fig.suptitle(f"{symbol} – Trend & Risk Signals", fontsize=14)
+
+    # ----- Panel 1: Price with volatility regime shading -----
+    ax_price = axes[0]
+    regime_colors = {"low": "#e0f7fa", "medium": "#fff9c4", "high": "#ffebee"}
+    for regime, color in regime_colors.items():
+        mask = panel_df["vol_regime"] == regime
+        if mask.any():
+            ax_price.fill_between(
+                panel_df.loc[mask, "date"],
+                panel_df.loc[mask, "Close"].min(),
+                panel_df.loc[mask, "Close"].max(),
+                color=color,
+                alpha=0.2,
+                label=f"{regime.title()} volatility",
+            )
+
+    ax_price.plot(panel_df["date"], panel_df["Close"], color="#424242", label="Close")
+    ax_price.plot(panel_df["date"], panel_df["ma_7"], linestyle="--", color="#1976d2", label="MA7")
+    ax_price.plot(panel_df["date"], panel_df["ma_30"], linestyle="--", color="#ffa000", label="MA30")
+    ax_price.set_ylabel("Price (USD)")
+    ax_price.set_title("Price + Volatility regime (shaded background)")
+    ax_price.legend(loc="upper left", ncol=2, fontsize=9)
+
+    # ----- Panel 2: Rolling max drawdown -----
+    ax_dd = axes[1]
+    dd_pct = panel_df["rolling_max_drawdown"] * 100
+    ax_dd.fill_between(panel_df["date"], dd_pct, 0, color="#ef5350", alpha=0.3)
+    ax_dd.plot(panel_df["date"], dd_pct, color="#b71c1c", linewidth=1.5)
+    ax_dd.set_ylabel("Drawdown (%)")
+    ax_dd.set_title("Rolling max drawdown – how deep the recent sell-off reached")
+    ax_dd.set_ylim(min(dd_pct.min() * 1.2, -5), 2)
+    ax_dd.grid(alpha=0.3)
+
+    # ----- Panel 3: Rolling Sharpe ratio -----
+    ax_sharpe = axes[2]
+    ax_sharpe.plot(panel_df["date"], panel_df["rolling_sharpe"], color="#2e7d32", linewidth=1.5)
+    ax_sharpe.axhline(0, color="gray", linestyle="--", linewidth=1)
+    ax_sharpe.set_ylabel("Sharpe (annualized)")
+    ax_sharpe.set_title("Rolling Sharpe – risk-adjusted momentum")
+    ax_sharpe.set_xlabel("Date")
+    ax_sharpe.grid(alpha=0.3)
+
+    fig.autofmt_xdate()
+    fig.tight_layout(rect=[0, 0.02, 1, 0.96])
+    if save_path:
+        save_path.parent.mkdir(parents=True, exist_ok=True)
+        fig.savefig(save_path, bbox_inches="tight")
+    plt.close(fig)
+
+
 def kline_chart(df: pd.DataFrame, symbol: str, show_volume: bool = True) -> go.Figure:
     """Create a polished candlestick chart with optional volume bars."""
 
