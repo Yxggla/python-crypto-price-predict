@@ -23,6 +23,7 @@ def plot_price_history(
     ax: Optional[plt.Axes] = None,
     show_volume: bool = True,
     save_path: Optional[Path] = None,
+    window: Optional[int] = None,
 ) -> plt.Axes:
     """Plot closing price with moving averages and optional volume bars."""
     if ax is None:
@@ -30,18 +31,20 @@ def plot_price_history(
     else:
         fig = ax.figure
 
-    ax.plot(df["date"], df["Close"], label=f"{symbol} Close")
+    plot_df = df.tail(window) if window else df
+
+    ax.plot(plot_df["date"], plot_df["Close"], label=f"{symbol} Close")
     for window in (7, 30):
-        ma = df["Close"].rolling(window).mean()
-        ax.plot(df["date"], ma, label=f"MA{window}")
+        ma = plot_df["Close"].rolling(window).mean()
+        ax.plot(plot_df["date"], ma, label=f"MA{window}")
     ax.set_xlabel("Date")
     ax.set_ylabel("Price (USD)")
     ax.legend()
     ax.set_title(f"{symbol} price history")
 
-    if show_volume and "Volume" in df.columns:
+    if show_volume and "Volume" in plot_df.columns:
         ax2 = ax.twinx()
-        ax2.bar(df["date"], df["Volume"], alpha=0.2, color="tab:gray", label="Volume")
+        ax2.bar(plot_df["date"], plot_df["Volume"], alpha=0.2, color="tab:gray", label="Volume")
         ax2.set_ylabel("Volume")
         ax2.grid(False)
         ax2.margins(x=0)
@@ -71,12 +74,17 @@ def kline_chart(df: pd.DataFrame, symbol: str, show_volume: bool = True) -> go.F
         specs=[[{"secondary_y": False}] for _ in range(rows)],
     )
 
+    change = df["Close"] - df["Open"]
+    change_pct = (change / df["Open"]) * 100
     hover_text = [
         (
             f"<b>{pd.to_datetime(date):%Y-%m-%d}</b><br>"
-            f"Open: {open_:.2f}<br>High: {high:.2f}<br>Low: {low:.2f}<br>Close: {close:.2f}"
+            f"Open: {open_:.2f}<br>High: {high:.2f}<br>Low: {low:.2f}<br>Close: {close:.2f}<br>"
+            f"Change: {chg:+.2f} ({pct:+.2f}%)"
         )
-        for date, open_, high, low, close in zip(df["date"], df["Open"], df["High"], df["Low"], df["Close"])
+        for date, open_, high, low, close, chg, pct in zip(
+            df["date"], df["Open"], df["High"], df["Low"], df["Close"], change, change_pct
+        )
     ]
 
     fig.add_trace(

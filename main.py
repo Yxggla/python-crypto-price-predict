@@ -67,6 +67,9 @@ def export_workbook(
         for symbol, df in price_data.items():
             sheet_df = df.copy()
             sheet_df["symbol"] = symbol
+            sheet_df["change_abs"] = sheet_df["Close"] - sheet_df["Open"]
+            sheet_df["change_pct"] = (sheet_df["change_abs"] / sheet_df["Open"]) * 100
+            sheet_df.loc[sheet_df["Open"] == 0, "change_pct"] = pd.NA
             price_frames.append(sheet_df)
         pd.concat(price_frames, ignore_index=True).to_excel(writer, sheet_name="prices", index=False)
 
@@ -104,7 +107,7 @@ def main() -> None:
         print(f"[data] Cached {symbol} price history at {csv_path}")
 
         save_path = figures_dir / f"{symbol.lower()}_price.png"
-        plot_price_history(df, symbol, save_path=save_path)
+        plot_price_history(df, symbol, save_path=save_path, window=365)
 
         vol = summarize_volatility(df)
         print(f"{symbol} latest volatility snapshot:")

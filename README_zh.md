@@ -81,6 +81,12 @@ requirements.txt  # 依赖列表
    生成的 CSV 含 `date, open, high, low, close, volume_base`。
 3. *（预留）* 当前 CLI 仅依赖 yfinance + OKX，如需新增指标，可在此扩展。
 
+## 输出一览
+
+- **Excel 价格表**：`prices` 工作表中除了原有 K 线列，还新增 `change_abs`（= Close − Open）与 `change_pct`（相对当日开盘的涨跌百分比），方便在 Excel 中直接筛选涨跌幅。
+- **交互式 K 线**：鼠标悬停在任意蜡烛上，会显示 O/H/L/C 以及当天的涨跌额与涨跌幅，无需再手算。
+- **价格+均线图（最近 365 天）**：`figures/<symbol>_price.png` 仅展示最近 365 个交易日，叠加 MA7 / MA30 与成交量，使买卖点、均线交叉更清晰。
+
 ## 对齐目标的扩展计划
 
 | 方向 | 价值 | 具体交付物 |

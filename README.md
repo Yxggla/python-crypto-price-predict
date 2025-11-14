@@ -79,6 +79,12 @@ requirements.txt  # Python dependencies
    Output CSV columns: `date, open, high, low, close, volume_base`.
 3. *(reserved for future sources)* 当前 CLI 仅依赖 yfinance + OKX，如需补充其它指标，可在此扩展。
 
+## Outputs at a glance
+
+- **Excel price sheet** — Every symbol’s yfinance OHLCV history now includes two extra columns: `change_abs` (Close − Open) and `change_pct` (percentage change from the day’s open). These appear in the `prices` worksheet next to the raw K-line data.
+- **Interactive K-line** — Hovering a candlestick shows Open/High/Low/Close plus the exact daily change and percentage change, making it easy to read the move without manual math.
+- **Price vs MA chart (365 days)** — The Matplotlib chart in `figures/<symbol>_price.png` focuses on the most recent 365 sessions so MA7/MA30 crossovers and volume shifts remain legible even when the download spans 2000+ days.
+
 ## Planned extensions (aligned to the objective)
 
 | Track | Why it matters | Concrete deliverables |
