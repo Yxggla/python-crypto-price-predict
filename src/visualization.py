@@ -169,6 +169,38 @@ def plot_indicator_panel(
     plt.close(fig)
 
 
+def plot_recent_forecast(
+    df: pd.DataFrame,
+    forecast: pd.Series,
+    symbol: str,
+    save_path: Optional[Path] = None,
+    window: int = 30,
+) -> None:
+    """Plot recent actual closes (window days) plus forward forecast."""
+
+    actual = df.set_index("date")["Close"]
+    recent_actual = actual.tail(window)
+
+    fig, ax = plt.subplots(figsize=(10, 4))
+    ax.plot(recent_actual.index, recent_actual.values, label="Actual (last 30d)", color="#1e88e5")
+    ax.scatter(recent_actual.index[-1], recent_actual.values[-1], color="#1e88e5", zorder=5)
+
+    if not forecast.empty:
+        ax.plot(forecast.index, forecast.values, label="Forecast (next 7d)", color="#f4511e", linestyle="--", marker="o")
+        ax.axvline(recent_actual.index[-1], color="gray", linestyle=":", linewidth=1)
+
+    ax.set_title(f"{symbol} – Last {window} days & next {len(forecast)}-day forecast")
+    ax.set_ylabel("Price (USD)")
+    ax.grid(alpha=0.3)
+    ax.legend()
+    fig.autofmt_xdate()
+
+    if save_path:
+        save_path.parent.mkdir(parents=True, exist_ok=True)
+        fig.savefig(save_path, bbox_inches="tight")
+    plt.close(fig)
+
+
 def kline_chart(df: pd.DataFrame, symbol: str, show_volume: bool = True) -> go.Figure:
     """Create a polished candlestick chart with optional volume bars."""
 

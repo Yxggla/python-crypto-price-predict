@@ -28,8 +28,8 @@ from src.data_loader import (
     load_history,
     load_okx_candles,
 )
-from src.model import predict_linear_regression, train_linear_regression
-from src.visualization import plot_actual_vs_predicted, plot_price_history, plot_indicator_panel, kline_chart
+from src.model import predict_linear_regression, train_linear_regression, forecast_linear_regression
+from src.visualization import plot_actual_vs_predicted, plot_price_history, plot_indicator_panel, plot_recent_forecast, kline_chart
 
 
 def parse_args() -> argparse.Namespace:
@@ -222,16 +222,23 @@ def main() -> None:
             dominance_path = None
             print(f"[warn] OKX dominance download skipped: {exc}")
 
-    # Example model training on the first symbol.
-    first_symbol = args.symbols[0]
-    model, metrics = train_linear_regression(datasets[first_symbol])
-    predictions = predict_linear_regression(model, datasets[first_symbol])
-    actual_series = datasets[first_symbol].set_index("date")["Close"]
-    summary = pd.DataFrame({"actual": actual_series.loc[predictions.index], "predicted": predictions})
-    save_path = figures_dir / f"{first_symbol.lower()}_predictions.png"
-    plot_actual_vs_predicted(actual_series, predictions, first_symbol, save_path=save_path)
-    print("Linear regression training metrics:", metrics)
-    print(summary.tail())
+    for symbol, data in datasets.items():
+        model, metrics = train_linear_regression(data)
+        predictions = predict_linear_regression(model, data)
+        actual_series = data.set_index("date")["Close"]
+        summary = pd.DataFrame({"actual": actual_series.loc[predictions.index], "predicted": predictions})
+        save_path = figures_dir / f"{symbol.lower()}_predictions.png"
+        plot_actual_vs_predicted(actual_series, predictions, symbol, save_path=save_path)
+        print(f"Linear regression training metrics for {symbol}:", metrics)
+        print(summary.tail())
+
+        try:
+            future_series = forecast_linear_regression(model, data, steps=7)
+            forecast_path = figures_dir / f"{symbol.lower()}_forecast_next7.png"
+            plot_recent_forecast(data, future_series, symbol, save_path=forecast_path, window=30)
+            print(f"[fig] Saved 30d + 7d forecast view to {forecast_path}")
+        except ValueError as exc:
+            print(f"[warn] Forecast skipped for {symbol}: {exc}")
 
     if args.export_xlsx:
         export_workbook(

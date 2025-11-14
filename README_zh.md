@@ -86,30 +86,30 @@ requirements.txt  # 依赖列表
 - **交互式 K 线**：鼠标悬停在任意蜡烛上，会显示 O/H/L/C 以及当天的涨跌额与涨跌幅，无需再手算。
 - **价格+均线图（最近 90 天）**：`figures/<symbol>_price.png` 聚焦最近 90 个交易日，区分 Close 相对 MA30 的多/空段落，MA7/MA30 使用虚线叠加，放量日以浅色背景突出，成交量柱则用绿色/红色区分“收涨/收跌”，并将纵轴改成以百万为单位，避免 `1e11` 这类刻度。
 - **指标面板**：每次运行还会生成 `figures/<symbol>_indicator_panel.png`，包含 3 个子图：① 价格 + 波动率 Regime 背景，② 滚动最大回撤，③ 滚动 Sharpe，并在下方追加“偏多 / 偏空 / 观望 + 理由”的文字说明，10 分钟内就能读懂信号。
+- **短期预测视图**：每个币种会额外生成 `figures/<symbol>_forecast_next7.png`，在同一张图中展示最近 30 天的实际价格与未来 7 天的预测曲线，让可能的拐点一目了然。
 - **信号快照**：CLI 会提示最新的波动率 Regime、滚动最大回撤、滚动 Sharpe、MA7/MA30 状态、BTC-ETH 价差 z-score，并直接输出“偏多 / 偏空 / 观望”的文字建议及理由，让用户不必额外跑脚本就能迅速理解下一步动作。
 
 ## 对齐目标的扩展计划
 
 | 方向 | 价值 | 具体交付物 |
 | --- | --- | --- |
-| **叙事与目标** | 确保团队始终围绕“10 分钟判断入/出场”推进。 | README + Persona 简报、成功指标，以及直接落地的图表/信号小结。 |
-| **多源数据骨干** | 市场占比背景让信号更可信。 | 让 CLI/Excel 稳定输出 yfinance BTC-USD/ETH-USD/SOL-USD 与 OKX BTC-USDT 蜡烛，并编制数据字典与校验脚本。 |
-| **指标与洞察** | 投资者需要可解释的触发器。 | 在 `src/analysis.py` 持续扩充滚动最大回撤、夏普、BTC-ETH 价差 z-score、波动率 Regime、MA 交叉，并让 CLI/指标面板直接解释触发逻辑。 |
-| **可视化与仪表盘** | 视觉化更易说服听众。 | 构建价格/优势/模型叠加的 Plotly Dashboard 与 Matplotlib 面板，输出 PNG/GIF，直接用于 PPT。 |
-| **建模与策略** | 回答“接下来怎么走、如何操作”。 | 在线性基线外实现 Prophet/LSTM，对比误差；实现 MA 交叉 + 预测收益策略，输出资金曲线、命中率、混淆矩阵。 |
+| **叙事与目标** | 始终围绕“10 分钟趋势简报”。 | README + Persona 简报、成功指标，以及 CLI 中的文字信号总结。 |
+| **数据骨干** | 多源数据让信号可信。 | 稳定产出 yfinance BTC/ETH/SOL 与 OKX dominance 数据，维护数据字典/校验脚本。 |
+| **指标与洞察** | 投资者需要可解释的触发器。 | 在 `src/analysis.py` 扩充滚动回撤、Sharpe、价差 z-score、波动率 Regime、MA 交叉，并让 CLI/面板呈现逻辑。 |
+| **可视化与仪表盘** | 视觉化更易说服听众。 | 打磨 Price/MA、指标面板、dominance、短期预测等图表，确保可直接放入汇报。 |
+| **建模与策略** | 回答“接下来怎么走”。 | 在线性基线外迭代 Prophet/LSTM，完善 MA 交叉/预测收益策略，输出资金曲线、混淆矩阵。 |
 
 ## 团队分工（6 人）
 
-1. **A：数据接入负责人(dyx)**
-   - 负责 `src/data_loader.py` + CLI，确保 yfinance BTC/ETH/SOL 与 OKX 优势蜡烛下载稳定并去除时区。
-   - 维护 CLI / Excel 导出结构及数据字典。
-2. **B：特征工程与清洗(shanshan)**
-   - 直接在 `src/analysis.py` 实现收益、价差等衍生字段，并写小测试验证样例行。
-3. **C：指标与洞察(li)**
-   - 在 `src/analysis.py` 增加最大回撤、夏普、波动 Regime、BTC-ETH z-score、MA 触发等函数，并确保 CLI/指标面板文字说明准确。
-4. **D：可视化工程(nyc)**
-   - 扩展 `src/visualization.py`（Plotly + Matplotlib），构建叠加价格/优势/模型信号的 Dashboard，输出 PNG/GIF。
-5. **E：建模算法(csn)**
-   - 负责 `src/model.py` 中的模型结构（LR/ARIMA 基线、Prophet/LSTM），调参并保存可复用的 checkpoint 或推理脚本。
-6. **F：策略与流水线集成(hy)**
-   - 将 E 生成的预测接入回测与导出层：在 `main.py` / Excel 导出里把 MA 交叉、预测收益策略等指标串联起来，编写 CLI 演示脚本并确认产出一致。
+1. **A：项目结构 & 数据接入**
+   - 维护仓库布局、依赖、`src/data_loader.py`，确保 yfinance/OKX 下载与 Excel 导出稳定。
+2. **B：数据处理 & 指标洞察**
+   - 负责 `src/analysis.py` 衍生字段与信号实现，校验 CLI 输出与指标面板说明。
+3. **C：图表可视化（Matplotlib）**
+   - 打磨 Price/MA 图、指标面板、30d+7d 预测图等 PNG 资产。
+4. **D：图表可视化（Plotly/HTML）**
+   - 维护 Plotly K 线、HTML dominance 视图及其他交互式输出。
+5. **E：模型与预测**
+   - 在 `src/model.py` 持续优化 LR/ARIMA/Prophet/LSTM，管理训练与 checkpoint。
+6. **F：策略与流水线集成**
+   - 将模型输出接入 MA 交叉/策略模块，扩展 `main.py` + Excel 导出，并验证 CLI 端到端产物。

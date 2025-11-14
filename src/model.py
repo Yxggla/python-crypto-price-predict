@@ -21,14 +21,24 @@ class LinearRegressionModel:
 
 
 def _feature_engineering(df: pd.DataFrame, windows: Iterable[int]) -> pd.DataFrame:
-    """Generate lagged returns and moving averages."""
+    """Generate lagged price, return, and moving-average features."""
     features = pd.DataFrame(index=df.index)
     returns = df["Close"].pct_change()
+
+    lag_windows = sorted(set(windows) | {1, 2, 3})
+    for lag in lag_windows:
+        features[f"close_lag_{lag}"] = df["Close"].shift(lag)
+        features[f"return_lag_{lag}"] = returns.shift(lag)
+
     for window in windows:
-        features[f"return_lag_{window}"] = returns.shift(window)
-        features[f"ma_ratio_{window}"] = df["Close"].rolling(window).mean() / df["Close"] - 1
+        ma = df["Close"].rolling(window).mean()
+        features[f"ma_ratio_{window}"] = ma / df["Close"] - 1
+        vol = returns.rolling(window, min_periods=window).std(ddof=0)
+        features[f"vol_window_{window}"] = vol.fillna(0.0)
+
     if "Volume" in df.columns:
         features["volume_change"] = df["Volume"].pct_change()
+
     return features
 
 
@@ -75,3 +85,44 @@ def fit_arima(df: pd.DataFrame, order: Tuple[int, int, int] = (5, 1, 0)):
     """Train a simple ARIMA model on the closing price."""
     model = ARIMA(df["Close"], order=order)
     return model.fit()
+
+
+def forecast_linear_regression(
+    model: LinearRegressionModel,
+    df: pd.DataFrame,
+    steps: int = 7,
+) -> pd.Series:
+    """Iteratively forecast future closing prices using the trained linear model."""
+
+    if "date" not in df.columns:
+        raise KeyError("Dataframe must contain 'date' column for forecasting.")
+
+    working = df.copy().reset_index(drop=True)
+    forecasts = []
+
+    for _ in range(steps):
+        base_row = working.iloc[[-1]].copy()
+        next_date = base_row["date"].iloc[0] + pd.Timedelta(days=1)
+        base_row["date"] = next_date
+        for col in ("Open", "High", "Low", "Close"):
+            if col in base_row.columns:
+                base_row[col] = working["Close"].iloc[-1]
+        if "Volume" in base_row.columns:
+            base_row["Volume"] = working.get("Volume", pd.Series([0])).iloc[-1]
+
+        working = pd.concat([working, base_row], ignore_index=True)
+
+        features = _feature_engineering(working, model.windows)
+        row = features.iloc[[-1]].reindex(columns=model.feature_columns)
+        if row.isna().any().any():
+            raise ValueError("Insufficient history to compute forecast features.")
+
+        pred = float(model.regressor.predict(row)[0])
+        idx = len(working) - 1
+        for col in ("Open", "High", "Low", "Close"):
+            if col in working.columns:
+                working.at[idx, col] = pred
+
+        forecasts.append((next_date, pred))
+
+    return pd.Series({date: value for date, value in forecasts})
