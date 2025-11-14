@@ -5,7 +5,7 @@ from __future__ import annotations
 import argparse
 from datetime import date, timedelta
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Dict, Optional
 
 import matplotlib.pyplot as plt
 import pandas as pd
@@ -22,13 +22,10 @@ from src.analysis import (
 )
 from src.data_loader import (
     DownloadConfig,
-    MacroSeriesConfig,
     OkxCandlesConfig,
-    download_macro_series,
     download_okx_candles,
     download_price_history,
     load_history,
-    load_macro_series,
     load_okx_candles,
 )
 from src.model import predict_linear_regression, train_linear_regression
@@ -48,12 +45,6 @@ def parse_args() -> argparse.Namespace:
         help="OKX instrument ID used for dominance proxy candles (set empty string to skip).",
     )
     parser.add_argument(
-        "--macro-series",
-        nargs="+",
-        default=["none"],
-        help="FRED series IDs to download (use 'none' to skip).",
-    )
-    parser.add_argument(
         "--export-xlsx",
         help="Optional path to write a consolidated Excel workbook for downstream analysis.",
     )
@@ -66,7 +57,6 @@ def export_workbook(
     dominance_path: Optional[Path],
     dominance_inst_id: Optional[str],
     dominance_bar: str,
-    macro_series: List[str],
 ) -> None:
     """Persist cached datasets to an Excel workbook for downstream analysis."""
     export_path.parent.mkdir(parents=True, exist_ok=True)
@@ -86,10 +76,6 @@ def export_workbook(
             dominance_df = load_okx_candles(inst_id=dominance_inst_id, bar=dominance_bar)
             dominance_df.to_excel(writer, sheet_name="dominance", index=False)
 
-        for series_id in macro_series:
-            macro_df = load_macro_series(series_id)
-            macro_df.to_excel(writer, sheet_name=f"macro_{series_id}", index=False)
-
     print(f"[export] Consolidated workbook written to {export_path}")
 
 
@@ -99,8 +85,6 @@ def main() -> None:
     start_date = end_date - timedelta(days=args.days)
     figures_dir = Path("figures")
     figures_dir.mkdir(parents=True, exist_ok=True)
-
-    macro_series = [] if args.macro_series == ["none"] else args.macro_series
 
     datasets: Dict[str, pd.DataFrame] = {}
     performance_rows = []
@@ -129,13 +113,6 @@ def main() -> None:
         save_path = figures_dir / f"{symbol.lower()}_price.png"
         plot_price_history(df, symbol, save_path=save_path, window=90)
 
-        indicator_path = figures_dir / f"{symbol.lower()}_indicator_panel.png"
-        try:
-            plot_indicator_panel(df, symbol, save_path=indicator_path, window=120)
-            print(f"[fig] Saved indicator panel to {indicator_path}")
-        except KeyError as exc:
-            print(f"[warn] Indicator panel skipped for {symbol}: {exc}")
-
         print(f"{symbol} latest volatility snapshot:")
         print(df[["date", "Close", "rolling_volatility"]].tail())
 
@@ -156,6 +133,45 @@ def main() -> None:
             direction = "bullish" if cross_row["ma_crossover"] > 0 else "bearish"
             cross_msg = f"{direction} on {cross_row['date'].date()}"
         print(f"[ma] {symbol}: current state {ma_label}, last crossover {cross_msg}")
+
+        # Simple textual recommendation
+        dd_numeric = dd_val if pd.notna(dd_val) else 0.0
+        sharpe_numeric = sharpe_val if pd.notna(sharpe_val) else 0.0
+        action = "wait"
+        reasons = []
+        if ma_state > 0:
+            reasons.append("MA7 above MA30")
+        elif ma_state < 0:
+            reasons.append("MA7 below MA30")
+        if sharpe_numeric > 0:
+            reasons.append("positive rolling Sharpe")
+        elif sharpe_numeric < 0:
+            reasons.append("negative rolling Sharpe")
+        if regime == "high":
+            reasons.append("volatility high")
+        elif regime == "low":
+            reasons.append("volatility calm")
+        if dd_numeric < -0.1:
+            reasons.append("deep recent drawdown")
+
+        if ma_state > 0 and sharpe_numeric > 0 and regime != "high":
+            action = "lean long"
+        elif ma_state < 0 and sharpe_numeric < 0:
+            action = "lean short"
+        elif regime == "high" and abs(dd_numeric) > 0.08:
+            action = "stand aside"
+
+        reason_text = "; ".join(reasons) if reasons else "insufficient data"
+        summary_text = f"Recommendation: {action} | Reasons: {reason_text}"
+        print(f"[summary] {symbol}: {summary_text}")
+
+        indicator_path = figures_dir / f"{symbol.lower()}_indicator_panel.png"
+        try:
+            panel_caption = f"{symbol} -> {action.upper()}\n" + "\n".join(f"• {r}" for r in (reasons or ["insufficient data"]))
+            plot_indicator_panel(df, symbol, save_path=indicator_path, window=120, summary_text=panel_caption)
+            print(f"[fig] Saved indicator panel to {indicator_path}")
+        except KeyError as exc:
+            print(f"[warn] Indicator panel skipped for {symbol}: {exc}")
 
         period_stats = period_return(df)
         stats_row = {"symbol": symbol, **period_stats.to_dict()}
@@ -206,14 +222,6 @@ def main() -> None:
             dominance_path = None
             print(f"[warn] OKX dominance download skipped: {exc}")
 
-    if macro_series:
-        for series_id in macro_series:
-            macro_path = download_macro_series(
-                MacroSeriesConfig(series_id=series_id, start=start_date, end=end_date),
-                force=args.force,
-            )
-            print(f"[data] Cached macro series {series_id} at {macro_path}")
-
     # Example model training on the first symbol.
     first_symbol = args.symbols[0]
     model, metrics = train_linear_regression(datasets[first_symbol])
@@ -232,7 +240,6 @@ def main() -> None:
             dominance_path=dominance_path,
             dominance_inst_id=args.dominance_inst_id,
             dominance_bar="1D",
-            macro_series=macro_series,
         )
 
     plt.show()

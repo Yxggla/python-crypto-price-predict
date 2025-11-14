@@ -11,7 +11,6 @@ Our refreshed goal is to hand an investor a **10-minute trend briefing** that st
 
 ```
 data/             # Cached CSV downloads from yfinance + OKX helpers
-notebooks/        # Jupyter notebooks for each analysis stage (to be authored by the team)
 src/              # Reusable Python modules for data loading, analytics, viz, and modelling
 main.py           # CLI entry point that runs the end-to-end workflow
 requirements.txt  # Python dependencies
@@ -28,13 +27,13 @@ requirements.txt  # Python dependencies
    ```bash
    pip install -r requirements.txt
    ```
-3. Run the CLI to fetch yfinance OHLCV, OKX dominance candles, figures, and models in one go (use `--macro-series none` to skip macro pulls entirely). Set `--days` to **2000 or more** so each symbol has at least ~2000 rows of history:
-   ```bash
+3. Run the CLI to fetch yfinance OHLCV, OKX dominance candles, figures, indicator panels, and models in one go. Set `--days` to **2000 or more** so each symbol has at least ~2000 rows of history:
+    ```bash
    python main.py --symbols BTC-USD ETH-USD SOL-USD --days 2000 --interval 1d \
-     --dominance-inst-id BTC-USDT --macro-series none \
+     --dominance-inst-id BTC-USDT \
      --export-xlsx exports/crypto_dashboard.xlsx
    ```
-   The CLI always emits Matplotlib PNGs, Plotly HTML files, and interactive charts. Add `--force` to refresh cached CSVs, and use `--dominance-inst-id` to switch OKX sources.
+   The CLI always emits Matplotlib PNGs (both the 90-day Price/MA view and the indicator panel), Plotly HTML files, and interactive charts. Add `--force` to refresh cached CSVs, and use `--dominance-inst-id` to switch OKX sources.
 
 ## Module overview
 
@@ -48,7 +47,7 @@ requirements.txt  # Python dependencies
 > **Environment prerequisites**
 > - `pip install -r requirements.txt` already covers yfinance/OKX helpers.
 >
-> The CLI automatically runs the same helpers (yfinance OHLCV downloads + OKX BTC-USDT dominance proxy) and can bundle everything into Excel via `--export-xlsx`. The snippets below are for ad-hoc or notebook use.
+> The CLI automatically runs the same helpers (yfinance OHLCV downloads + OKX BTC-USDT dominance proxy) and can bundle everything into Excel via `--export-xlsx`. The snippets below are for ad-hoc script use.
 
 ### Data origin cheat sheet
 
@@ -84,8 +83,8 @@ requirements.txt  # Python dependencies
 - **Excel price sheet** — Every symbol’s yfinance OHLCV history now includes two extra columns: `change_abs` (Close − Open) and `change_pct` (percentage change from the day’s open). These appear in the `prices` worksheet next to the raw K-line data.
 - **Interactive K-line** — Hovering a candlestick shows Open/High/Low/Close plus the exact daily change and percentage change, making it easy to read the move without manual math.
 - **Price vs MA chart (90 days)** — The Matplotlib chart in `figures/<symbol>_price.png` zooms into the latest 90 sessions, color-codes bull/bear regimes (Close vs MA30), draws both MA7 / MA30 as dashed overlays, shades the top-volume days, and shows teal/red volume bars (with a legend) depending on whether the session closed up or down; the volume axis now uses human-friendly million units instead of `1e11`-style ticks.
-- **Indicator panel** — Each run also saves `figures/<symbol>_indicator_panel.png`,一个三联图，分别解释：① 价格 + 波动率 Regime（背景颜色）, ② 滚动最大回撤, ③ 滚动 Sharpe。面板标题直接告诉用户指标意图，让 10 分钟阅读更加直观。
-- **Signal snapshot** — CLI output now reports each symbol’s active volatility regime, rolling max drawdown, rolling Sharpe, MA7/MA30 state, plus the current BTC–ETH spread z-score so Notebook 02 can reference the exact trigger context.
+- **Indicator panel** — Each run also saves `figures/<symbol>_indicator_panel.png`, a three-pack showing (1) price + volatility regime shading, (2) rolling max drawdown, (3) rolling Sharpe, plus a caption that spells out the current “lean long / lean short / wait” action with bullet-point reasons.
+- **Signal snapshot** — CLI output now prints the volatility regime, rolling max drawdown, rolling Sharpe, MA7/MA30 state, BTC–ETH spread z-score, **and** a plain-English recommendation (lean long / lean short / wait) with the key reasons so you can act without opening a notebook.
 
 ## Planned extensions (aligned to the objective)
 
@@ -93,28 +92,23 @@ requirements.txt  # Python dependencies
 | --- | --- | --- |
 | **Narrative & objectives** | Keeps everyone driving toward “10-minute entry/exit guidance.” | README + persona brief with success metrics, plus notebook callouts that tie outputs back to the story. |
 | **Multisource data spine** | Market-share context makes signals credible. | Harden CLI/export for BTC-USD/ETH-USD/SOL-USD (yfinance) plus OKX BTC-USDT dominance candles, and document a data dictionary with validation checks. |
-| **Indicators & macro insight** | Users need interpretable triggers. | Add rolling max drawdown, Sharpe, BTC–ETH spread z-score, volatility regimes, MA crossovers; include trigger explanations in Notebook 02. |
-| **Visualization & dashboard** | Stakeholders digest insights visually. | Plotly dashboard with price/dominance/macro/model overlays, regime shading, annotations, and exported PNG/GIF assets ready for PPT. |
+| **Indicators & insight** | Users need interpretable triggers. | Keep CLI + indicator panel updated with rolling max drawdown, Sharpe, BTC–ETH spread z-score, volatility regimes, MA crossovers, and plain-English recommendations. |
+| **Visualization & dashboard** | Stakeholders digest insights visually. | Expand Plotly/Matplotlib outputs (Price/MA, indicator panel, dominance chart) and ensure every graphic is export-ready for PPT/briefings. |
 | **Modeling & strategy** | Quantifies “what happens next” and actionability. | Compare LR/ARIMA vs Prophet/LSTM, implement MA crossover + predicted-return strategies, and output equity curves + confusion matrices. |
-| **Notebook-first storytelling** | Slides/report should flow from notebooks. | Populate `notebooks/01-03` with markdown narration, saved charts/tables, and references indicating which slide/report section each asset supports. |
 
 ## Suggested team workflow
 
 1. **Person A – Data ingestion lead**
    - Owns `src/data_loader.py` / CLI integrations to keep yfinance BTC/ETH/SOL pulls and OKX dominance candles healthy and timezone-clean.
-   - Maintains Notebook 01’s ETL section (data dictionary, validation snippets) and ensures Excel export schemas stay stable.
+   - Maintains the CLI + Excel export schema and verifies cached datasets stay consistent.
 2. **Person B – Feature engineering & cleaning**
-   - Implements derived columns (returns, spreads, macro joins) inside Notebook 01 and supporting helpers in `src/analysis.py`.
-   - Writes quick unit/notebook tests validating sample rows before data moves downstream.
-3. **Person C – Indicator & macro analytics**
-   - Extends `src/analysis.py` with rolling drawdown, Sharpe, volatility regimes, BTC–ETH z-scores, MA triggers, and documents each signal in Notebook 02 with code + commentary.
-   - Hands off summarized tables/figures that cite the exact code cell for reuse.
+   - Implements derived columns (returns, spreads, etc.) directly in `src/analysis.py` helpers and adds lightweight tests.
+3. **Person C – Indicator & insight engineering**
+   - Extends `src/analysis.py` with new signals (drawdown, Sharpe, volatility regimes, z-scores, MA triggers) and ensures CLI prints/plots remain readable.
 4. **Person D – Visualization engineering**
-   - Develops Plotly dashboards and Matplotlib figures inside `src/visualization.py`, wiring price/dominance/macro/model overlays plus annotations.
-   - Automates figure export via CLI `--save-figures` or notebook cells, providing instructions/code for reproducing PNG/GIF assets.
+   - Builds/updates Plotly + Matplotlib figures (Price/MA, indicator panel, dominance charts) so assets drop straight into PPT/briefings.
 5. **Person E – Modeling algorithms**
-   - Focuses on model architectures inside Notebook 03 / `src/model.py` (LR/ARIMA baseline vs Prophet/LSTM), tuning hyperparameters and saving reusable checkpoints or inference helpers.
-   - Documents training/evaluation code so others can reproduce metrics and swap models in or out.
+   - Focuses on model architectures inside `src/model.py` (LR/ARIMA baseline vs Prophet/LSTM), tuning hyperparameters and saving reusable checkpoints or inference helpers.
 6. **Person F – Strategy & pipeline integration**
    - Takes Person E’s predictions and owns the backtesting/export layer: wiring predictions into MA crossover / predicted-return strategies, extending `main.py` + Excel exports so new metrics land in the workbook.
    - Adds CLI/demo scripts that showcase the full pipeline (data → indicators → models → strategy outputs) and verifies each run emits the expected CSV/Excel/figure set.

@@ -1,8 +1,7 @@
-"""Utilities for fetching and caching cryptocurrency + macro datasets."""
+"""Utilities for fetching and caching cryptocurrency datasets."""
 
 from __future__ import annotations
 
-import os
 from dataclasses import dataclass
 from datetime import date, datetime
 from pathlib import Path
@@ -12,11 +11,6 @@ import pandas as pd
 import requests
 import yfinance as yf
 from pandas.api.types import is_datetime64tz_dtype
-
-try:  # Optional import so unit tests can mock it easily.
-    from pandas_datareader import data as data_reader
-except ImportError:  # pragma: no cover - documented dependency.
-    data_reader = None
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -42,10 +36,6 @@ def _price_output_path(symbol: str, interval: str) -> Path:
     return ensure_data_dir() / f"{slug}_{interval}.csv"
 
 
-def _macro_output_path(series_id: str) -> Path:
-    return ensure_data_dir() / f"macro_{series_id.lower()}.csv"
-
-
 def _strip_timezone(series: pd.Series) -> pd.Series:
     if is_datetime64tz_dtype(series):
         return series.dt.tz_localize(None)
@@ -58,17 +48,6 @@ class DownloadConfig:
     start: date | datetime | str
     end: Optional[date | datetime | str] = None
     interval: str = "1d"
-
-
-@dataclass
-class MacroSeriesConfig:
-    """Configuration for fetching macroeconomic series (e.g., FRED)."""
-
-    series_id: str
-    start: date | datetime | str
-    end: Optional[date | datetime | str] = None
-    source: str = "fred"
-    api_key: Optional[str] = None
 
 
 @dataclass
@@ -116,43 +95,6 @@ def load_history(symbol: str, interval: str = "1d") -> pd.DataFrame:
         df["date"] = _strip_timezone(df["date"])
     df.sort_values("date", inplace=True)
     df.reset_index(drop=True, inplace=True)
-    return df
-
-
-def download_macro_series(config: MacroSeriesConfig, force: bool = False) -> Path:
-    csv_path = _macro_output_path(config.series_id)
-    if csv_path.exists() and not force:
-        return csv_path
-
-    if data_reader is None:
-        raise ImportError("pandas-datareader is required for macro downloads. Install via `pip install pandas-datareader`.")
-
-    if config.api_key:
-        os.environ.setdefault("FRED_API_KEY", config.api_key)
-
-    start = pd.to_datetime(config.start)
-    end = pd.to_datetime(config.end) if config.end else None
-    series = data_reader.DataReader(config.series_id, config.source, start, end)
-    if isinstance(series, pd.Series):
-        df = series.to_frame(name="value")
-    else:
-        df = series.copy()
-        if len(df.columns) == 1:
-            df.columns = ["value"]
-        else:
-            df.columns = [str(col) for col in df.columns]
-    df.index.name = "date"
-    df.reset_index().to_csv(csv_path, index=False)
-    return csv_path
-
-
-def load_macro_series(series_id: str) -> pd.DataFrame:
-    csv_path = _macro_output_path(series_id)
-    if not csv_path.exists():
-        raise FileNotFoundError(f"{csv_path} not found. Fetch data with download_macro_series first.")
-    df = pd.read_csv(csv_path, parse_dates=["date"])
-    if "date" in df.columns:
-        df["date"] = _strip_timezone(df["date"])
     return df
 
 
@@ -213,4 +155,3 @@ def load_okx_candles(inst_id: str, bar: str = "1D") -> pd.DataFrame:
     if "date" in df.columns:
         df["date"] = _strip_timezone(df["date"])
     return df
-

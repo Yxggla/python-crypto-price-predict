@@ -102,6 +102,7 @@ def plot_indicator_panel(
     symbol: str,
     save_path: Optional[Path] = None,
     window: int = 120,
+    summary_text: Optional[str] = None,
 ) -> None:
     """Create a multi-panel chart that explains each derived signal."""
 
@@ -157,7 +158,11 @@ def plot_indicator_panel(
     ax_sharpe.grid(alpha=0.3)
 
     fig.autofmt_xdate()
-    fig.tight_layout(rect=[0, 0.02, 1, 0.96])
+    if summary_text:
+        fig.text(0.02, 0.01, summary_text, fontsize=9, ha="left", va="bottom", family="monospace")
+        fig.tight_layout(rect=[0, 0.05, 1, 0.96])
+    else:
+        fig.tight_layout(rect=[0, 0.02, 1, 0.96])
     if save_path:
         save_path.parent.mkdir(parents=True, exist_ok=True)
         fig.savefig(save_path, bbox_inches="tight")
