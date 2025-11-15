@@ -55,6 +55,40 @@ requirements.txt  # 依赖列表
    Windows 用户可直接用 `py -3 main.py ...`（或 `python main.py ...`），命令参数保持一致。
    程序会自动生成 Matplotlib PNG（含 Price/MA 与指标面板）、Plotly HTML，并弹出交互式图表；`--force` 会强制重拉 CSV，`--dominance-inst-id` 用于切换 OKX 配置。
 
+### yfinance 限流/封禁的备用方案（OKX）
+
+- yfinance 对无缓存的高频请求会触发 `Too Many Requests`；建议优先复用 `data/*.csv` 缓存，必要时用 OKX API 生成同名 CSV 避免再次触发 yfinance。
+- `src/data_loader.download_okx_candles` 支持任意 OKX 现货/永续合约，只要在保存前把列名改成 CLI 期望的 `Open/High/Low/Close/Volume` 即可。
+- 快速脚本示例（以 BTC/ETH 为例），写入与 yfinance 相同的缓存文件名，这样下次运行 CLI 时 `download_price_history` 会直接返回已有 CSV，不会再访问 yfinance：
+  ```python
+  from pathlib import Path
+  import pandas as pd
+  from src.data_loader import OkxCandlesConfig, download_okx_candles
+
+  mapping = {
+      "BTC-USD": OkxCandlesConfig(inst_id="BTC-USDT", bar="1D", limit=1000),
+      "ETH-USD": OkxCandlesConfig(inst_id="ETH-USDT", bar="1D", limit=1000),
+  }
+
+  for symbol, cfg in mapping.items():
+      okx_path = download_okx_candles(cfg, force=True)
+      df = pd.read_csv(okx_path).rename(
+          columns={"open": "Open", "high": "High", "low": "Low", "close": "Close", "volume_base": "Volume"}
+      )
+      df["symbol"] = symbol
+      cache_name = symbol.lower() + "_1d.csv"
+      df.to_csv(Path("data") / cache_name, index=False)
+      print(f"{symbol} OKX 数据写入 data/{cache_name}")
+  ```
+  - OKX 的 `inst_id` 需要用 USDT 计价的合约，如 `SOL-USDT`，并保证 `limit` ≥ CLI 所需天数。
+  - 如果你已经跑完上述脚本，请 **不要加 `--force`**，让 CLI 直接复用这些缓存；若需要刷新，再手动运行一次脚本即可。
+- 如果想直接用命令行，无需自己写脚本，可执行：
+  ```bash
+  python scripts/cache_okx_prices.py --symbols BTC-USD ETH-USD SOL-USD --bar 1D --limit 1200 --force
+  ```
+  - 默认会自动把 `BTC-USD` 映射到 `BTC-USDT`，如需改用其他 OKX 合约，追加 `--override BTC-USD=BTC-USDC` 这类参数即可（可重复多次）。
+  - 生成的 `data/*.csv` 会覆盖原有缓存，随后运行 `python main.py ...` 时务必去掉 `--force`，否则又会重新请求 yfinance。
+
 ## 模块概览
 
 - `src/data_loader.py` —— 统一封装 yfinance 价格与 OKX BTC-USDT 蜡烛，全部缓存为 CSV。
