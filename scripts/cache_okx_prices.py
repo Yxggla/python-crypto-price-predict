@@ -8,6 +8,11 @@ from typing import Dict
 
 import pandas as pd
 
+# Allow running as `python scripts/cache_okx_prices.py` without PYTHONPATH tweaks.
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+if str(PROJECT_ROOT) not in __import__("sys").path:
+    __import__("sys").path.insert(0, str(PROJECT_ROOT))
+
 from src.data_loader import OkxCandlesConfig, download_okx_candles, ensure_data_dir
 
 

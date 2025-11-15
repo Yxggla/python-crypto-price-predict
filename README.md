@@ -30,9 +30,23 @@ exports/          # Optional Excel exports (ignored by git)
    py -3 -m venv .venv
    .\.venv\Scripts\Activate.ps1
    ```
+   **Windows CMD**
+   ```cmd
+   py -3 -m venv .venv
+   .\.venv\Scripts\activate.bat
+   ```
+   > If PowerShell shows “running scripts is disabled on this system”, open an **Administrator** PowerShell once and run:
+   > ```powershell
+   > Set-ExecutionPolicy -Scope CurrentUser RemoteSigned
+   > ```
+   > Then rerun `.\.venv\Scripts\Activate.ps1`. Switching to CMD does not require changing the execution policy.
 2. Install dependencies:
    ```bash
    pip install -r requirements.txt
+   ```
+   Windows tip (ensures the venv’s Python/pip are used):
+   ```powershell
+   .\.venv\Scripts\python.exe -m pip install -r requirements.txt
    ```
 3. Run the CLI to fetch yfinance OHLCV, OKX dominance candles, indicator panels, 90-day Price/MA charts, short-term forecasts, and models in one go. Set `--days` to **2000 or more** so each symbol has at least ~2000 rows of history:
     ```bash
@@ -40,7 +54,44 @@ exports/          # Optional Excel exports (ignored by git)
      --dominance-inst-id BTC-USDT \
      --export-xlsx exports/crypto_dashboard.xlsx
    ```
+   If yfinance is being rate limited, refresh the cached CSVs via OKX first and then run the CLI without `--force`:
+   ```bash
+   python scripts/cache_okx_prices.py --symbols BTC-USD ETH-USD SOL-USD --bar 1D --limit 2200 --force && \
+   python main.py --symbols BTC-USD ETH-USD SOL-USD --days 2000 --interval 1d \
+     --dominance-inst-id BTC-USDT \
+     --export-xlsx exports/crypto_dashboard.xlsx
+   ```
+   The first command mirrors OKX spot candles into `data/*.csv`; the second command reads those caches to produce charts/exports without hitting yfinance. Windows users can substitute `py -3` in both commands if needed.
    The CLI always emits Matplotlib PNGs (90-day Price/MA, indicator panel, 30d+7d forecast), Plotly HTML K-lines, interactive charts, and Excel exports. Add `--force` to refresh cached CSVs, and use `--dominance-inst-id` to switch OKX sources.
+
+### yfinance rate-limit fallback (OKX)
+
+- yfinance returns HTTP 429 (“Too Many Requests”) if you hammer it without reusing cached CSVs. Prefer reusing `data/*.csv`, or rebuild them using OKX data.
+- `src/data_loader.download_okx_candles` can pull any OKX spot/swap pair. Rename columns to the yfinance-style schema (`Open/High/Low/Close/Volume`) before dropping them into `data/`.
+- Quick Python snippet (BTC + ETH) that overwrites the same cache filenames. After running it, the CLI immediately reuses the OKX-based CSVs without touching yfinance:
+  ```python
+  from pathlib import Path
+  import pandas as pd
+  from src.data_loader import OkxCandlesConfig, download_okx_candles
+
+  mapping = {
+      "BTC-USD": OkxCandlesConfig(inst_id="BTC-USDT", bar="1D", limit=1000),
+      "ETH-USD": OkxCandlesConfig(inst_id="ETH-USDT", bar="1D", limit=1000),
+  }
+
+  for symbol, cfg in mapping.items():
+      okx_path = download_okx_candles(cfg, force=True)
+      df = pd.read_csv(okx_path).rename(
+          columns={"open": "Open", "high": "High", "low": "Low", "close": "Close", "volume_base": "Volume"}
+      )
+      df["symbol"] = symbol
+      cache_name = symbol.lower() + "_1d.csv"
+      df.to_csv(Path("data") / cache_name, index=False)
+      print(f"{symbol} OKX candles saved to data/{cache_name}")
+  ```
+  - Use USDT-quoted instruments (e.g., `SOL-USDT`) and set `limit` ≥ the number of days you intend to fetch.
+  - After running the snippet, **omit `--force`** when calling `python main.py ...` so it keeps reusing the OKX caches. Rerun the snippet whenever you want fresh data.
+- Prefer a CLI? Run `python scripts/cache_okx_prices.py --symbols BTC-USD ETH-USD SOL-USD --bar 1D --limit 1200 --force`. It automatically maps `BTC-USD -> BTC-USDT`, and you can override mappings via `--override BTC-USD=BTC-USDC`. The generated `data/*.csv` files have the yfinance-compatible schema.
 
 ## Module overview
 

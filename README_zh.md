@@ -52,6 +52,14 @@ requirements.txt  # 依赖列表
      --dominance-inst-id BTC-USDT \
      --export-xlsx exports/crypto_dashboard.xlsx
    ```
+   如果 yfinance 正常，可直接运行上面的命令；若需要先用 OKX 刷新缓存，可使用：
+   ```bash
+   python scripts/cache_okx_prices.py --symbols BTC-USD ETH-USD SOL-USD --bar 1D --limit 2200 --force && \
+   python main.py --symbols BTC-USD ETH-USD SOL-USD --days 2000 --interval 1d \
+     --dominance-inst-id BTC-USDT \
+     --export-xlsx exports/crypto_dashboard.xlsx
+   ```
+   第一条命令会从 OKX 拉取蜡烛并覆盖 `data/*.csv`，第二条命令读取这些缓存继续生成图表/报告，注意此时请勿再添加 `--force`。
    Windows 用户可直接用 `py -3 main.py ...`（或 `python main.py ...`），命令参数保持一致。
    程序会自动生成 Matplotlib PNG（含 Price/MA 与指标面板）、Plotly HTML，并弹出交互式图表；`--force` 会强制重拉 CSV，`--dominance-inst-id` 用于切换 OKX 配置。
 
