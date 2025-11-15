@@ -1,11 +1,4 @@
-# 数据文件夹
-data/
 
-# 导出文件
-exports/
-
-# 图表文件
-figures/
 
 # Python 缓存
 __pycache__/
