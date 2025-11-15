@@ -25,6 +25,11 @@ exports/          # Optional Excel exports (ignored by git)
    python3 -m venv .venv
    source .venv/bin/activate
    ```
+   **Windows PowerShell**
+   ```powershell
+   py -3 -m venv .venv
+   .\.venv\Scripts\Activate.ps1
+   ```
 2. Install dependencies:
    ```bash
    pip install -r requirements.txt
