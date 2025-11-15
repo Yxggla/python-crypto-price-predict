@@ -106,15 +106,15 @@ requirements.txt  # 依赖列表
 
 ## 团队分工（6 人）
 
-1. **A：项目结构 & 数据接入**
+1. **A：项目结构 & 数据接入(dyx)**
    - 维护仓库布局、依赖、`src/data_loader.py`，确保 yfinance/OKX 下载与 Excel 导出稳定。
-2. **B：数据处理 & 指标洞察**
+2. **B：数据处理 & 指标洞察（li）**
    - 负责 `src/analysis.py` 衍生字段与信号实现，校验 CLI 输出与指标面板说明。
-3. **C：图表可视化（Matplotlib）**
-   - 打磨 Price/MA 图、指标面板、30d+7d 预测图等 PNG 资产。
+3. **C：图表可视化（Matplotlib）(hy)**
+   - 打磨 Price/MA 图、指标面板。
 4. **D：图表可视化（Plotly/HTML）**
    - 维护 Plotly K 线、HTML dominance 视图及其他交互式输出。
-5. **E：模型与预测**
+5. **E：模型与预测(csn)**
    - 在 `src/model.py` 持续优化 LR/ARIMA/Prophet/LSTM，管理训练与 checkpoint。
-6. **F：策略与流水线集成**
-   - 将模型输出接入 MA 交叉/策略模块，扩展 `main.py` + Excel 导出，并验证 CLI 端到端产物。
+6. **F：图表可视化（Matplotlib）(nn)**
+   - 预测图等 PNG 资产。。

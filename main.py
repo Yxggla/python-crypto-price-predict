@@ -32,6 +32,64 @@ from src.model import predict_linear_regression, train_linear_regression, foreca
 from src.visualization import plot_actual_vs_predicted, plot_price_history, plot_indicator_panel, plot_recent_forecast, kline_chart
 
 
+def export_forecast_table(
+    symbol: str,
+    price_history: pd.DataFrame,
+    forecast: pd.Series,
+    forecast_rows: Optional[int] = None,
+) -> None:
+    """Write the forward forecast to an Excel file for sharing."""
+    if forecast.empty:
+        return
+
+    export_rows = forecast.head(forecast_rows) if forecast_rows else forecast
+    forecast_df = export_rows.rename("predicted_close").to_frame().reset_index().rename(columns={"index": "date"})
+    forecast_df["date"] = pd.to_datetime(forecast_df["date"]).dt.strftime("%Y-%m-%d")
+    forecast_df["predicted_close"] = forecast_df["predicted_close"].round(2)
+
+    export_dir = Path("exports")
+    export_dir.mkdir(parents=True, exist_ok=True)
+    export_path = export_dir / f"{symbol.lower()}_forecast_next7.xlsx"
+    with pd.ExcelWriter(export_path) as writer:
+        forecast_df.to_excel(writer, sheet_name=f"next_{len(export_rows)}d_forecast", index=False)
+    print(f"[export] Saved {symbol} forecast table to {export_path}")
+
+
+def export_recent_prediction_comparison(
+    symbol: str,
+    actual_series: pd.Series,
+    predicted_series: pd.Series,
+    window: int = 90,
+) -> None:
+    """Persist last-N-day actual vs predicted closes for inspection."""
+    if predicted_series.empty:
+        return
+
+    aligned_actual = actual_series.loc[predicted_series.index]
+    if window:
+        aligned_actual = aligned_actual.tail(window)
+        predicted_series = predicted_series.loc[aligned_actual.index]
+
+    export_df = pd.DataFrame(
+        {
+            "date": aligned_actual.index,
+            "actual_close": aligned_actual.values,
+            "predicted_close": predicted_series.values,
+        }
+    )
+    export_df["diff"] = export_df["predicted_close"] - export_df["actual_close"]
+    export_df["date"] = pd.to_datetime(export_df["date"]).dt.strftime("%Y-%m-%d")
+    export_df[["actual_close", "predicted_close", "diff"]] = export_df[
+        ["actual_close", "predicted_close", "diff"]
+    ].round(2)
+
+    export_dir = Path("exports")
+    export_dir.mkdir(parents=True, exist_ok=True)
+    export_path = export_dir / f"{symbol.lower()}_predictions_last{window}.xlsx"
+    export_df.to_excel(export_path, index=False)
+    print(f"[export] Saved {symbol} last {window}d prediction comparison to {export_path}")
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Cryptocurrency Trend Analysis and Prediction")
     parser.add_argument("--symbols", nargs="+", default=["BTC-USD", "ETH-USD"], help="yfinance ticker symbols to download")
@@ -228,15 +286,23 @@ def main() -> None:
         actual_series = data.set_index("date")["Close"]
         summary = pd.DataFrame({"actual": actual_series.loc[predictions.index], "predicted": predictions})
         save_path = figures_dir / f"{symbol.lower()}_predictions.png"
-        plot_actual_vs_predicted(actual_series, predictions, symbol, save_path=save_path)
+        plot_actual_vs_predicted(
+            actual_series,
+            predictions,
+            symbol,
+            save_path=save_path,
+            window=90,
+        )
         print(f"Linear regression training metrics for {symbol}:", metrics)
         print(summary.tail())
+        export_recent_prediction_comparison(symbol, actual_series, predictions, window=90)
 
         try:
             future_series = forecast_linear_regression(model, data, steps=7)
             forecast_path = figures_dir / f"{symbol.lower()}_forecast_next7.png"
             plot_recent_forecast(data, future_series, symbol, save_path=forecast_path, window=30)
             print(f"[fig] Saved 30d + 7d forecast view to {forecast_path}")
+            export_forecast_table(symbol, data, future_series, forecast_rows=7)
         except ValueError as exc:
             print(f"[warn] Forecast skipped for {symbol}: {exc}")
 

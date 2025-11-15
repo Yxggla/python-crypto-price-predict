@@ -175,6 +175,7 @@ def plot_recent_forecast(
     symbol: str,
     save_path: Optional[Path] = None,
     window: int = 30,
+    annotate_forecast: bool = False,
 ) -> None:
     """Plot recent actual closes (window days) plus forward forecast."""
 
@@ -188,6 +189,18 @@ def plot_recent_forecast(
     if not forecast.empty:
         ax.plot(forecast.index, forecast.values, label="Forecast (next 7d)", color="#f4511e", linestyle="--", marker="o")
         ax.axvline(recent_actual.index[-1], color="gray", linestyle=":", linewidth=1)
+        if annotate_forecast:
+            for idx, val in forecast.items():
+                ax.annotate(
+                    f"{val:.2f}",
+                    xy=(idx, val),
+                    xytext=(0, 8),
+                    textcoords="offset points",
+                    ha="center",
+                    fontsize=8,
+                    color="#d84315",
+                    bbox=dict(boxstyle="round,pad=0.2", facecolor="white", alpha=0.7, linewidth=0.0),
+                )
 
     ax.set_title(f"{symbol} – Last {window} days & next {len(forecast)}-day forecast")
     ax.set_ylabel("Price (USD)")
@@ -314,6 +327,7 @@ def plot_actual_vs_predicted(
     symbol: str,
     ax: Optional[plt.Axes] = None,
     save_path: Optional[Path] = None,
+    window: Optional[int] = None,
 ) -> plt.Axes:
     """Plot actual vs predicted closing prices on the same axes."""
     if ax is None:
@@ -322,6 +336,9 @@ def plot_actual_vs_predicted(
         fig = ax.figure
 
     aligned_actual = actual.loc[predicted.index]
+    if window:
+        aligned_actual = aligned_actual.tail(window)
+        predicted = predicted.loc[aligned_actual.index]
     ax.plot(aligned_actual.index, aligned_actual.values, label="Actual", color="tab:blue")
     ax.plot(predicted.index, predicted.values, label="Predicted", color="tab:orange", linestyle="--")
     ax.fill_between(
@@ -337,6 +354,7 @@ def plot_actual_vs_predicted(
     ax.set_ylabel("Price (USD)")
     ax.legend()
     ax.grid(alpha=0.2)
+
     fig.autofmt_xdate()
     _maybe_save(fig, save_path)
     return ax
