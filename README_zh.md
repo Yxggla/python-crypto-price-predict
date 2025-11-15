@@ -28,9 +28,23 @@ requirements.txt  # 依赖列表
    py -3 -m venv .venv
    .\.venv\Scripts\Activate.ps1
    ```
+   **Windows CMD**
+   ```cmd
+   py -3 -m venv .venv
+   .\.venv\Scripts\activate.bat
+   ```
+   > **PowerShell 提示**：首次执行 `Activate.ps1` 如果提示 *“running scripts is disabled on this system”*，请以管理员身份打开 PowerShell（一次即可），运行：
+   > ```powershell
+   > Set-ExecutionPolicy -Scope CurrentUser RemoteSigned
+   > ```
+   > 然后重新执行 `.\.venv\Scripts\Activate.ps1`。切换回 CMD 的话直接使用 `activate.bat`，无需修改策略。
 2. 安装依赖：
    ```bash
    pip install -r requirements.txt
+   ```
+   在 Windows 上若想确保使用虚拟环境内的 pip，可以运行：
+   ```powershell
+   .\.venv\Scripts\python.exe -m pip install -r requirements.txt
    ```
 3. 运行 CLI，一次性完成 yfinance OHLCV、OKX 优势蜡烛、图表、指标面板与模型。`--days` 请设置为 **2000 及以上**，保证每个币种都有 >2000 条历史记录：
    ```bash
@@ -38,6 +52,7 @@ requirements.txt  # 依赖列表
      --dominance-inst-id BTC-USDT \
      --export-xlsx exports/crypto_dashboard.xlsx
    ```
+   Windows 用户可直接用 `py -3 main.py ...`（或 `python main.py ...`），命令参数保持一致。
    程序会自动生成 Matplotlib PNG（含 Price/MA 与指标面板）、Plotly HTML，并弹出交互式图表；`--force` 会强制重拉 CSV，`--dominance-inst-id` 用于切换 OKX 配置。
 
 ## 模块概览
