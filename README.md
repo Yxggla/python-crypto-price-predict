@@ -1,7 +1,7 @@
 # Cryptocurrency Trend Analysis / 加密货币趋势分析
 
-CLI workflow that downloads yfinance OHLCV and OKX dominance candles, computes interpretable indicators, renders export-ready visualisations, and prints “lean long / lean short / wait” suggestions for a 10-minute investment briefing.  
-本项目是一套 CLI 工作流，可自动抓取 yfinance OHLCV 与 OKX 优势数据、生成可解释指标、导出图表，并输出“偏多/偏空/观望”建议，满足 10 分钟趋势汇报的需求。
+CLI workflow that downloads yfinance OHLCV, computes interpretable indicators, renders export-ready visualisations, and prints “lean long / lean short / wait” suggestions for a 10-minute investment briefing.  
+本项目是一套基于 yfinance 的 CLI 工作流，可自动抓取 OHLCV、生成可解释指标、导出图表，并输出“偏多/偏空/观望”建议，满足 10 分钟趋势汇报的需求。
 
 ## Overview 概述
 
@@ -19,9 +19,8 @@ CLI workflow that downloads yfinance OHLCV and OKX dominance candles, computes i
 ## Repository Layout 项目结构
 
 ```
-data/             Cached CSV from yfinance + OKX / yfinance 与 OKX 的缓存 CSV
+data/             Fresh CSV generated every CLI run / 每次 CLI 运行生成的最新 CSV
 src/              Data loading, analytics, viz, modelling modules / 数据加载、分析、可视化、建模模块
-scripts/          Helpers for caching OKX candles etc. / OKX 缓存等脚本
 main.py           CLI entry point / CLI 入口
 figures/, exports/  Generated PNG/HTML/XLSX (gitignored) / 生成物（已忽略）
 requirements.txt  Python 依赖
@@ -46,26 +45,19 @@ requirements.txt  Python 依赖
    ```
    Windows 可用 `.\.venv\Scripts\python.exe -m pip install -r requirements.txt` 确保使用虚拟环境。
 
-3. **Run the CLI 运行 CLI**
+3. **Run the CLI 运行 CLI**（每次都会重新下载 yfinance 数据并覆盖 `data/*.csv`）
    ```bash
    python main.py --symbols BTC-USD ETH-USD SOL-USD --days 2000 --interval 1d \
-     --dominance-inst-id BTC-USDT --export-xlsx exports/crypto_dashboard.xlsx
+     --export-xlsx exports/crypto_dashboard.xlsx
    ```
    - `--days ≥ 2000` so each asset has足够历史。  
    - CLI 会在 `figures/` 生成 Matplotlib PNG + Plotly HTML，在 `exports/` 输出 Excel，总结信号到终端。
+   - `--force` 保留但已无效果，因为现在默认就会覆盖下载。
 
 ## Handling yfinance Rate Limits 处理 yfinance 限流
 
-1. Reuse cached CSV in `data/*.csv`; rerunning the CLI without `--force` avoids re-downloading.  
-   优先复用 `data/*.csv` 缓存，不加 `--force` 可避免重复下载。
-2. Refresh caches via OKX:  
-   ```bash
-   python scripts/cache_okx_prices.py --symbols BTC-USD ETH-USD SOL-USD --bar 1D --limit 2200 --force
-   ```
-   Then rerun the main CLI **without** `--force` to consume those files.  
-   再次运行 CLI 时不加 `--force`，直接读取新的 OKX 缓存。
-3. Programmatic control: use `src/data_loader.OkxCandlesConfig` to pull any OKX pair, rename to `Open/High/Low/Close/Volume`, and save under `data/` with the `<symbol>_1d.csv` convention.  
-   亦可直接调用 `src/data_loader.OkxCandlesConfig` 下载任意现货/永续，改列名后覆盖 `data/<symbol>_1d.csv`。
+Because `download_price_history` now **always** re-fetches from yfinance, frequent CLI runs may trigger `429 Too Many Requests`. Reduce back-to-back executions, stagger symbols, or rotate networks if necessary.  
+由于 `download_price_history` 现已强制重下 yfinance，频繁运行 CLI 可能触发 429，建议降低运行频率或切换网络/IP。
 
 ## Outputs at a Glance 输出一览
 
@@ -81,17 +73,17 @@ requirements.txt  Python 依赖
 | Track 方向 | Why 价值 | Deliverables 交付 |
 | --- | --- | --- |
 | Narrative & objectives 叙事与目标 | Keep everyone aligned to “10-minute trend briefing”. 紧扣“10 分钟简报”。 | README、persona、成功指标、CLI 文案。 |
-| Data spine 数据骨干 | Multiple sources make signals credible. 多源数据提升可信度。 | 稳定的 BTC/ETH/SOL + OKX dominance 下载、schema 文档、校验脚本。 |
+| Data spine 数据骨干 | Clean pipelines keep input可信。 | 稳定的 BTC/ETH/SOL yfinance 下载、schema 文档、校验脚本。 |
 | Indicators & insight 指标洞察 | Investors need interpretable triggers. 投资者需要可解释触发器。 | 滚动回撤/Sharpe/波动率 regime/BTC-ETH z-score/MA 交叉，含图含文本。 |
-| Visualization & dashboard 可视化 | Visuals speed up storytelling. 视觉化更易说服。 | Price/MA、指标面板、dominance、预测图（PNG/HTML）。 |
+| Visualization & dashboard 可视化 | Visuals speed up storytelling. 视觉化更易说服。 | Price/MA、指标面板、短期预测等图表（PNG/HTML）。 |
 | Modeling & strategy 建模策略 | Answer “what’s next”. 回答“之后怎么走”。 | LR/ARIMA/Prophet/LSTM，MA 交叉/收益策略，资金曲线/混淆矩阵。 |
 
 ## Team Roles 团队分工
 
-1. **Repo structure & data ingestion (dyx)** – Owns repo layout, dependencies, and `src/data_loader.py`; 确保 yfinance/OKX 下载与 Excel 导出稳定。
+1. **Repo structure & data ingestion (dyx)** – Owns repo layout, dependencies, and `src/data_loader.py`; 确保 yfinance 下载与 Excel 导出稳定。
 2. **Data processing & indicator insight（li）** – 扩展 `src/analysis.py`，维护衍生字段/信号，并校验 CLI 与指标面板说明的准确性。
 3. **Matplotlib visualizations (hy)** – 打磨 Price/MA 图与指标面板样式，保证 PNG 可直接用于汇报。
-4. **Plotly & HTML visualizations（ss）** – 负责 Plotly K 线、HTML dominance 视图及其他交互式输出，支撑 Web/PPT 嵌入。
+4. **Plotly & HTML visualizations（ss）** – 负责 Plotly K 线及其他交互式输出，支撑 Web/PPT 嵌入。
 5. **Modeling & forecasting (csn)** – 迭代 LR/ARIMA/Prophet/LSTM，管理训练与 checkpoint，提供预测洞察。
 6. **Matplotlib forecast graphics (nn)** – 聚焦预测相关 PNG（如 `forecast_next7`），统一配色/标注以便讲解。
 

@@ -22,11 +22,8 @@ from src.analysis import (
 )
 from src.data_loader import (
     DownloadConfig,
-    OkxCandlesConfig,
-    download_okx_candles,
     download_price_history,
     load_history,
-    load_okx_candles,
 )
 from src.model import predict_linear_regression, train_linear_regression, forecast_linear_regression
 from src.visualization import plot_actual_vs_predicted, plot_price_history, plot_indicator_panel, plot_recent_forecast, kline_chart
@@ -98,11 +95,6 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--force", action="store_true", help="Redownload existing CSV files")
 
     parser.add_argument(
-        "--dominance-inst-id",
-        default="BTC-USDT",
-        help="OKX instrument ID used for dominance proxy candles (set empty string to skip).",
-    )
-    parser.add_argument(
         "--export-xlsx",
         help="Optional path to write a consolidated Excel workbook for downstream analysis.",
     )
@@ -112,9 +104,6 @@ def parse_args() -> argparse.Namespace:
 def export_workbook(
     export_path: Path,
     price_data: Dict[str, pd.DataFrame],
-    dominance_path: Optional[Path],
-    dominance_inst_id: Optional[str],
-    dominance_bar: str,
 ) -> None:
     """Persist cached datasets to an Excel workbook for downstream analysis."""
     export_path.parent.mkdir(parents=True, exist_ok=True)
@@ -129,10 +118,6 @@ def export_workbook(
             sheet_df.loc[sheet_df["Open"] == 0, "change_pct"] = pd.NA
             price_frames.append(sheet_df)
         pd.concat(price_frames, ignore_index=True).to_excel(writer, sheet_name="prices", index=False)
-
-        if dominance_path and dominance_inst_id:
-            dominance_df = load_okx_candles(inst_id=dominance_inst_id, bar=dominance_bar)
-            dominance_df.to_excel(writer, sheet_name="dominance", index=False)
 
     print(f"[export] Consolidated workbook written to {export_path}")
 
@@ -264,22 +249,6 @@ def main() -> None:
             f" on {latest_spread['date'].date()}"
         )
 
-    dominance_path: Optional[Path] = None
-    if args.dominance_inst_id:
-        try:
-            dominance_path = download_okx_candles(
-                OkxCandlesConfig(
-                    inst_id=args.dominance_inst_id,
-                    bar="1D",
-                    limit=min(max(args.days, 200), 1000),
-                ),
-                force=args.force,
-            )
-            print(f"[data] Cached {args.dominance_inst_id} OKX candles at {dominance_path}")
-        except RuntimeError as exc:
-            dominance_path = None
-            print(f"[warn] OKX dominance download skipped: {exc}")
-
     for symbol, data in datasets.items():
         model, metrics = train_linear_regression(data)
         predictions = predict_linear_regression(model, data)
@@ -310,9 +279,6 @@ def main() -> None:
         export_workbook(
             export_path=Path(args.export_xlsx),
             price_data=datasets,
-            dominance_path=dominance_path,
-            dominance_inst_id=args.dominance_inst_id,
-            dominance_bar="1D",
         )
 
     plt.show()

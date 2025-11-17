@@ -10,7 +10,7 @@
 ## 项目结构
 
 ```
-data/             # 缓存 yfinance / OKX 拉取的 CSV
+data/             # 每次运行 CLI 生成的最新 CSV
 src/              # 数据加载、分析、可视化、建模模块
 main.py           # 端到端 CLI 入口
 requirements.txt  # 依赖列表
@@ -46,60 +46,22 @@ requirements.txt  # 依赖列表
    ```powershell
    .\.venv\Scripts\python.exe -m pip install -r requirements.txt
    ```
-3. 运行 CLI，一次性完成 yfinance OHLCV、OKX 优势蜡烛、图表、指标面板与模型。`--days` 请设置为 **2000 及以上**，保证每个币种都有 >2000 条历史记录：
+3. 运行 CLI，一次性完成 yfinance OHLCV 下载、图表、指标面板与建模。`--days` 建议设置为 **2000+**，保证每个币种都有足够历史。CLI 默认会覆盖 `data/*.csv`：
    ```bash
    python main.py --symbols BTC-USD ETH-USD SOL-USD --days 2000 --interval 1d \
-     --dominance-inst-id BTC-USDT \
      --export-xlsx exports/crypto_dashboard.xlsx
    ```
-   如果 yfinance 正常，可直接运行上面的命令；若需要先用 OKX 刷新缓存，可使用：
-   ```bash
-   python scripts/cache_okx_prices.py --symbols BTC-USD ETH-USD SOL-USD --bar 1D --limit 2200 --force && \
-   python main.py --symbols BTC-USD ETH-USD SOL-USD --days 2000 --interval 1d \
-     --dominance-inst-id BTC-USDT \
-     --export-xlsx exports/crypto_dashboard.xlsx
-   ```
-   第一条命令会从 OKX 拉取蜡烛并覆盖 `data/*.csv`，第二条命令读取这些缓存继续生成图表/报告，注意此时请勿再添加 `--force`。
-   Windows 用户可直接用 `py -3 main.py ...`（或 `python main.py ...`），命令参数保持一致。
-   程序会自动生成 Matplotlib PNG（含 Price/MA 与指标面板）、Plotly HTML，并弹出交互式图表；`--force` 会强制重拉 CSV，`--dominance-inst-id` 用于切换 OKX 配置。
+运行结束后 `data/` 会被最新结果覆盖，无需手动清缓存。Windows 可使用 `py -3 main.py ...`。
+程序会自动生成 Matplotlib PNG（Price/MA、指标面板、预测图）与 Plotly HTML K 线，并在终端输出信号。`--force` 保留但默认行为已是强制更新。
 
-### yfinance 限流/封禁的备用方案（OKX）
+### yfinance 限流注意事项
 
-- yfinance 对无缓存的高频请求会触发 `Too Many Requests`；建议优先复用 `data/*.csv` 缓存，必要时用 OKX API 生成同名 CSV 避免再次触发 yfinance。
-- `src/data_loader.download_okx_candles` 支持任意 OKX 现货/永续合约，只要在保存前把列名改成 CLI 期望的 `Open/High/Low/Close/Volume` 即可。
-- 快速脚本示例（以 BTC/ETH 为例），写入与 yfinance 相同的缓存文件名，这样下次运行 CLI 时 `download_price_history` 会直接返回已有 CSV，不会再访问 yfinance：
-  ```python
-  from pathlib import Path
-  import pandas as pd
-  from src.data_loader import OkxCandlesConfig, download_okx_candles
-
-  mapping = {
-      "BTC-USD": OkxCandlesConfig(inst_id="BTC-USDT", bar="1D", limit=1000),
-      "ETH-USD": OkxCandlesConfig(inst_id="ETH-USDT", bar="1D", limit=1000),
-  }
-
-  for symbol, cfg in mapping.items():
-      okx_path = download_okx_candles(cfg, force=True)
-      df = pd.read_csv(okx_path).rename(
-          columns={"open": "Open", "high": "High", "low": "Low", "close": "Close", "volume_base": "Volume"}
-      )
-      df["symbol"] = symbol
-      cache_name = symbol.lower() + "_1d.csv"
-      df.to_csv(Path("data") / cache_name, index=False)
-      print(f"{symbol} OKX 数据写入 data/{cache_name}")
-  ```
-  - OKX 的 `inst_id` 需要用 USDT 计价的合约，如 `SOL-USDT`，并保证 `limit` ≥ CLI 所需天数。
-  - 如果你已经跑完上述脚本，请 **不要加 `--force`**，让 CLI 直接复用这些缓存；若需要刷新，再手动运行一次脚本即可。
-- 如果想直接用命令行，无需自己写脚本，可执行：
-  ```bash
-  python scripts/cache_okx_prices.py --symbols BTC-USD ETH-USD SOL-USD --bar 1D --limit 1200 --force
-  ```
-  - 默认会自动把 `BTC-USD` 映射到 `BTC-USDT`，如需改用其他 OKX 合约，追加 `--override BTC-USD=BTC-USDC` 这类参数即可（可重复多次）。
-  - 生成的 `data/*.csv` 会覆盖原有缓存，随后运行 `python main.py ...` 时务必去掉 `--force`，否则又会重新请求 yfinance。
+- 由于 `download_price_history` 每次都会访问 yfinance，如果短时间内多次运行 CLI，有可能触发 `Too Many Requests`。建议减少频繁实验或切换不同网络。
+- 如需备用数据源，可自行编写脚本拉取其他交易所数据并保存到 `data/*.csv`，但默认 CLI 会在下一次运行时用 yfinance 覆盖。
 
 ## 模块概览
 
-- `src/data_loader.py` —— 统一封装 yfinance 价格与 OKX BTC-USDT 蜡烛，全部缓存为 CSV。
+- `src/data_loader.py` —— 统一封装 yfinance 价格下载逻辑，每次运行都会拉取并输出最新 CSV。
 - `src/analysis.py` —— 计算日收益、滚动波动率、跨资产相关性，以及从首开到末收的整体涨跌幅。
 - `src/visualization.py` —— 提供价格 + 成交量、多均线、蜡烛图、预测对比等 Matplotlib/Plotly 辅助函数。
 - `src/model.py` —— 实现线性回归基线与 ARIMA，后续可扩展到 Prophet/LSTM。
@@ -110,15 +72,13 @@ requirements.txt  # 依赖列表
 > - `requirements.txt` 已包含 yfinance / requests 相关依赖，开箱即用。
 >
 > CLI 默认会调用这些助手函数：
-> - yfinance —— 提供 `--symbols` 中每个币种的 OHLCV 历史，驱动价格图、收益统计、模型训练；
-> - OKX 公共 API —— 通过 `download_okx_candles` 提供 BTC-USDT 优势蜡烛 (`open/high/low/close/volume_base`)，用于 dominance 相关导出。
+> - yfinance —— 提供 `--symbols` 中每个币种的 OHLCV 历史，驱动价格图、收益统计、模型训练。
 >
 > 下面的示例更适合单独脚本调试。
 
 ### 数据来源速览
 
 - **yfinance**：BTC-USD、ETH-USD、SOL-USD 等所有价格序列。
-- **OKX**：BTC-USDT dominance 蜡烛，仅用于优势度可视化/导出。
 
 1. **币价历史（yfinance）**  
    ```python
@@ -134,13 +94,7 @@ requirements.txt  # 依赖列表
    ]
    download_price_histories(configs)
    ```
-2. **BTC.D 优势代理（OKX BTC-USDT 蜡烛）**  
-   ```python
-   from src.data_loader import OkxCandlesConfig, download_okx_candles
-   download_okx_candles(OkxCandlesConfig(inst_id="BTC-USDT", bar="1D"))
-   ```
-   生成的 CSV 含 `date, open, high, low, close, volume_base`。
-3. *（预留）* 当前 CLI 仅依赖 yfinance + OKX，如需新增指标，可在此扩展。
+3. *（预留）* 当前 CLI 仅依赖 yfinance，如需新增数据源或指标，可在此扩展。
 
 ## 输出一览
 
@@ -156,21 +110,21 @@ requirements.txt  # 依赖列表
 | 方向 | 价值 | 具体交付物 |
 | --- | --- | --- |
 | **叙事与目标** | 始终围绕“10 分钟趋势简报”。 | README + Persona 简报、成功指标，以及 CLI 中的文字信号总结。 |
-| **数据骨干** | 多源数据让信号可信。 | 稳定产出 yfinance BTC/ETH/SOL 与 OKX dominance 数据，维护数据字典/校验脚本。 |
+| **数据骨干** | 干净数据让信号可信。 | 稳定产出 yfinance BTC/ETH/SOL 数据，维护数据字典/校验脚本。 |
 | **指标与洞察** | 投资者需要可解释的触发器。 | 在 `src/analysis.py` 扩充滚动回撤、Sharpe、价差 z-score、波动率 Regime、MA 交叉，并让 CLI/面板呈现逻辑。 |
-| **可视化与仪表盘** | 视觉化更易说服听众。 | 打磨 Price/MA、指标面板、dominance、短期预测等图表，确保可直接放入汇报。 |
+| **可视化与仪表盘** | 视觉化更易说服听众。 | 打磨 Price/MA、指标面板、短期预测等图表，确保可直接放入汇报。 |
 | **建模与策略** | 回答“接下来怎么走”。 | 在线性基线外迭代 Prophet/LSTM，完善 MA 交叉/预测收益策略，输出资金曲线、混淆矩阵。 |
 
 ## 团队分工（6 人）
 
 1. **A：项目结构 & 数据接入(dyx)**
-   - 维护仓库布局、依赖、`src/data_loader.py`，确保 yfinance/OKX 下载与 Excel 导出稳定。
+   - 维护仓库布局、依赖、`src/data_loader.py`，确保 yfinance 下载与 Excel 导出稳定。
 2. **B：数据处理 & 指标洞察（li）**
    - 负责 `src/analysis.py` 衍生字段与信号实现，校验 CLI 输出与指标面板说明。
 3. **C：图表可视化（Matplotlib）(hy)**
    - 打磨 Price/MA 图、指标面板。
 4. **D：图表可视化（Plotly/HTML）（ss）**
-   - 维护 Plotly K 线、HTML dominance 视图及其他交互式输出。
+   - 维护 Plotly K 线及其他交互式输出。
 5. **E：模型与预测(csn)**
    - 在 `src/model.py` 持续优化 LR/ARIMA/Prophet/LSTM，管理训练与 checkpoint。
 6. **F：图表可视化（Matplotlib）(nn)**

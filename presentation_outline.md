@@ -1,74 +1,90 @@
-# PPT Outline / 汇报提纲
+# 汇报提纲（全中文）
 
-10‑minute group presentation with six speakers, ~2 slides each. Focus on **what the project does, which technologies we used, why it matters, the workflow diagram, and individual contributions.**
+10 分钟、6 位成员、每人约 2 张幻灯片。重点：**项目做了什么、为什么做、用到哪些技术、整体流程图、各自负责内容**。
 
-## Agenda 概览
+## 议程安排
 
-| Time | Slide(s) | Speaker | Content 摘要 |
+| 时间 | 幻灯片 | 演讲者 | 内容 |
 | --- | --- | --- | --- |
-| 0:00‑1:30 | 1‑2 | dyx | Title, team intro, problem/goal summary |
-| 1:30‑3:00 | 3‑4 | dyx | Data sources + tech stack overview |
-| 3:00‑4:30 | 5‑6 | li | Indicators & analytics logic |
-| 4:30‑6:00 | 7‑8 | hy | Visualization outputs + storytelling |
-| 6:00‑7:15 | 9‑10 | csn | Modelling & forecasting insights |
-| 7:15‑8:30 | 11‑12 | nn | Strategy integration + overall flowchart |
-| 8:30‑10:00 | 13‑14 | All | Rapid-fire individual highlights + Q&A buffer |
+| 0:00‑1:30 | 1‑2 | dyx | 封面、团队介绍、痛点与目标 |
+| 1:30‑3:00 | 3‑4 | dyx | 数据来源、技术栈 |
+| 3:00‑4:30 | 5‑6 | li | 指标体系、信号逻辑 |
+| 4:30‑6:00 | 7‑8 | hy | Matplotlib 可视化输出 |
+| 6:00‑7:15 | 9‑10 | csn | 建模与预测洞察 |
+| 7:15‑8:30 | 11‑12 | nn | 流程图 + 策略整合 |
+| 8:30‑10:00 | 13‑14 | 全体 | 个人亮点、Q&A 缓冲 |
 
-## Slide-by-slide Details 逐页要点
+## 幻灯片要点
 
-1. **Cover / 封面** (dyx)  
-   - Project title, team name, members.  
-   - Key value proposition: “10-minute cryptocurrency trend briefing.”
-2. **Problem & Objective / 痛点与目标** (dyx)  
-   - Pain points: fragmented data, uncertainty about trend/volatility/signals.  
-   - Objective statement linking to investors’ quick decisions.
-3. **Data Sources / 数据来源** (dyx)  
-   - yfinance OHLCV + OKX dominance; mention caching strategy.  
-   - Diagram/token logos to keep it visual.
-4. **Tech Stack / 技术栈** (dyx)  
-   - Python, Pandas, Matplotlib, Plotly, statsmodels/Prophet, CLI automation.  
-   - Highlight reproducible CLI workflow.
-5. **Indicator Design / 指标设计** (li)  
-   - Rolling drawdown, Sharpe, volatility regime, MA crossovers.  
-   - Rationale for each metric (interpretability, actionability).
-6. **Signal Recommendation Logic / 信号决策逻辑** (li)  
-   - How indicators combine into “lean long / wait / lean short.”  
-   - Showcase snippet from CLI output or decision table.
-7. **Matplotlib Visuals / 静态可视化** (hy)  
-   - 90-day Price+MA chart anatomy, volume shading, bull/bear regimes.  
-   - Screenshot/mock-up emphasising export-ready design.
-8. **Indicator Panel & Forecast PNG / 指标面板 + 预测图** (hy)  
-   - Explain layout of indicator panel and 30+7 forecast chart.  
-   - Mention styling choices that aid storytelling.
-9. **Modelling Approach / 建模方法** (csn)  
-   - Models tried (LR/ARIMA/Prophet/LSTM), feature set, validation.  
-   - Why Prophet/LSTM chosen (or lessons learned).
-10. **Forecast Insights / 预测洞察** (csn)  
-    - Example forecast vs actual, interpretation of next 7 days.  
-    - Limitations + future improvements.
-11. **Workflow Diagram / 项目流程图** (nn)  
-    - End-to-end pipeline: data ingestion → processing → analytics → viz → model → strategy → exports.  
-    - Use arrows/icons, highlight feedback loops.
-12. **Strategy Integration / 策略整合** (nn)  
-    - How outputs feed MA crossover / trading playbook, Excel exports, PPT assets.  
-    - Emphasise reproducible CLI demo.
-13. **Individual Highlights / 个人亮点** (all, 30s each)  
-    - Each member states contribution + biggest challenge solved.  
-    - Keep one shared slide with six columns or bullets.
-14. **Wrap-up & Q&A / 总结与问答** (lead by dyx)  
-    - Reiterate objective, key takeaways, next steps.  
-    - Hold final 60‑90 seconds for questions.
+1. **封面**（dyx）  
+   - 项目名、团队成员、关键词：“10 分钟趋势简报”。
+2. **问题与目标**（dyx）  
+   - 痛点：数据分散、难以判断趋势/波动率/信号一致性。  
+   - 目标：一套自动化 CLI 工作流，输出可直接决策的建议。
+3. **数据来源**（dyx）  
+   - yfinance OHLCV、缓存策略。  
+   - 用图标或流程框突出演进路径。
+4. **技术栈**（dyx）  
+   - Python、Pandas、Matplotlib、Plotly、statsmodels/Prophet、CLI。  
+   - 强调可复现的命令行操作。
+5. **指标设计**（li）  
+   - 滚动最大回撤、夏普、波动率 Regime、MA 交叉、BTC‑ETH 价差 z-score。  
+   - 说明每个指标如何帮助理解趋势。
+6. **信号决策逻辑**（li）  
+   - 指标如何合成为“偏多 / 观望 / 偏空”。  
+   - 展示 CLI 输出或决策树。
+7. **价格+均线图**（hy）  
+   - 90 天 Price+MA 结构、成交量高亮、牛熊分区。  
+   - 展示一张示例截图。
+8. **指标面板 + 预测图**（hy）  
+   - 指标面板三子图布局，30+7 预测图的视觉语言。  
+   - 说明如何快速讲故事。
+9. **建模方法**（csn）  
+   - LR/ARIMA/Prophet/LSTM、特征、验证方式。  
+   - 为何最终选择某模型或经验总结。
+10. **预测洞察**（csn）  
+    - 预测 vs 实际的示例，未来 7 天的解释。  
+    - 局限与改进方向。
+11. **项目流程图**（nn）  
+    - 重点详述（见下文“流程图说明”）。  
+    - 用箭头串联整个链路。
+12. **策略整合与交付**（nn）  
+    - 如何把预测嵌入 MA 策略、Excel、PPT。  
+    - 现场演示 CLI 的价值。
+13. **个人亮点**（全体）  
+    - 每人 30 秒：职责 + 最大挑战。  
+    - 可用一个六宫格展示。
+14. **总结与问答**（dyx）  
+    - 再次强调目标与关键收获。  
+    - 留出 60‑90 秒答疑。
 
-## Flowchart Guidance 流程图提示
+## 流程图说明（重点展示）
 
-- Nodes: Data Sources → Data Loader → Indicator Engine → Visualization Layer → Modelling → Strategy Output → Deliverables (PPT/Excel/CLI).  
-- Annotate technologies per step (e.g., `Pandas`, `Matplotlib`, `Prophet`).  
-- Highlight parallel paths (visualisation & modelling) converging into final recommendation.
+**流程顺序：**
+1. **数据源**  
+   - yfinance（BTC/ETH/SOL OHLCV）。
+2. **数据采集与缓存**  
+   - `main.py` → 写入 `data/*.csv`。
+3. **数据处理与指标计算**  
+   - `src/data_loader.py` 读取 → `src/analysis.py` 计算回撤/夏普/波动率/MA/价差等字段。
+4. **可视化层**  
+   - Matplotlib 生成 Price+MA、指标面板、Forecast PNG；Plotly 生成交互式 K 线。
+5. **建模与预测**  
+   - `src/model.py`（LR/ARIMA/Prophet/LSTM）训练与推理 → 产生“过去 30 天 + 未来 7 天”曲线。
+6. **策略与信号输出**  
+   - 将指标与预测合成为“lean long / wait / lean short”建议，写入 CLI 日志 & Excel。
+7. **交付物**  
+   - `figures/` PNG、`exports/` Excel、PPT 截图、课堂汇报。
 
-## Presenter Tips 演讲提示
+**图示建议：**
+- 采用左到右或上到下流程；每个节点标注主要技术（Pandas、Matplotlib、Prophet 等）。
+- 在“可视化层”与“建模层”下方画出并行路径，最终在“策略与信号输出”处汇合。
+- 可在流程图外侧补充“dyx/li/hy/csn/nn”标签，突出责任人。
 
-1. Open with the “10-minute briefing” narrative so everyone understands why the workflow matters.  
-2. Use the CLI screenshots/figures as visual anchors; avoid dense text.  
-3. Transition cues: each speaker references the previous one (“As li’s signals show…”) to keep flow tight.  
-4. Keep bilingual captions where needed (English titles + Chinese subtitles) to match README and rubric.  
-5. Timebox rehearsals: target 75 seconds per speaker, leaving a 90-second Q&A buffer.
+## 演讲提示
+
+1. 开场即强调“10 分钟趋势简报”故事线，让评委知道输出价值。  
+2. 使用 CLI 截图、图表、流程图作为视觉锚点，避免大段文字。  
+3. 交接时引用上一位的内容，保持连贯，例如：“正如 li 的信号逻辑所示…”。  
+4. 关键标题用英文，正文辅以中文，保持与 README 一致。  
+5. 排练时每人控制在 75 秒左右，保留 90 秒 Q&A 余量。

@@ -2,13 +2,12 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import date, datetime
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Dict, Optional
 
 import pandas as pd
-import requests
 import yfinance as yf
 from pandas.api.types import is_datetime64tz_dtype
 
@@ -46,24 +45,15 @@ def _strip_timezone(series: pd.Series) -> pd.Series:
 class DownloadConfig:
     symbol: str
     start: date | datetime | str
-    end: Optional[date | datetime | str] = None
+    end: Optional[date | datetime | str] = field(default_factory=date.today)
     interval: str = "1d"
 
-
-@dataclass
-class OkxCandlesConfig:
-    """Configuration for fetching OKX candlestick data."""
-
-    inst_id: str
-    bar: str = "1D"
-    limit: int = 200
-
-
 def download_price_history(config: DownloadConfig, force: bool = False) -> Path:
-    """Download historical price data for a single symbol via yfinance."""
+    """Download historical price data for a single symbol via yfinance.
+
+    This always fetches fresh data and overwrites any existing CSV.
+    """
     csv_path = _price_output_path(config.symbol, config.interval)
-    if csv_path.exists() and not force:
-        return csv_path
 
     ticker = yf.Ticker(config.symbol)
     data = ticker.history(
@@ -95,63 +85,4 @@ def load_history(symbol: str, interval: str = "1d") -> pd.DataFrame:
         df["date"] = _strip_timezone(df["date"])
     df.sort_values("date", inplace=True)
     df.reset_index(drop=True, inplace=True)
-    return df
-
-
-def download_okx_candles(config: OkxCandlesConfig, force: bool = False) -> Path:
-    csv_path = ensure_data_dir() / f"{config.inst_id.lower()}_{config.bar.lower()}_okx.csv"
-    if csv_path.exists() and not force:
-        return csv_path
-
-    params: Dict[str, Any] = {
-        "instId": config.inst_id.upper(),
-        "bar": config.bar,
-        "limit": config.limit,
-    }
-
-    response = requests.get("https://www.okx.com/api/v5/market/candles", params=params, timeout=30)
-    if response.status_code != 200:
-        raise RuntimeError(
-            f"OKX request failed ({response.status_code}): {response.text}"
-        )
-
-    payload = response.json()
-    data = payload.get("data", [])
-    if not data:
-        raise ValueError(f"No candle data returned for {config.inst_id}")
-
-    df = pd.DataFrame(
-        data,
-        columns=[
-            "ts",
-            "open",
-            "high",
-            "low",
-            "close",
-            "volume_base",
-            "volume_quote",
-            "volume_quote_currency",
-            "confirm",
-        ],
-    )
-    df["ts"] = pd.to_numeric(df["ts"], errors="coerce")
-    df.dropna(subset=["ts"], inplace=True)
-    df["date"] = pd.to_datetime(df["ts"], unit="ms")
-    numeric_cols = ["open", "high", "low", "close", "volume_base"]
-    df[numeric_cols] = df[numeric_cols].apply(pd.to_numeric, errors="coerce")
-    df = df[["date"] + numeric_cols]
-    df.sort_values("date", inplace=True)
-    df.to_csv(csv_path, index=False)
-    return csv_path
-
-
-def load_okx_candles(inst_id: str, bar: str = "1D") -> pd.DataFrame:
-    csv_path = ensure_data_dir() / f"{inst_id.lower()}_{bar.lower()}_okx.csv"
-    if not csv_path.exists():
-        raise FileNotFoundError(
-            f"{csv_path} not found. Fetch data with download_okx_candles first."
-        )
-    df = pd.read_csv(csv_path, parse_dates=["date"])
-    if "date" in df.columns:
-        df["date"] = _strip_timezone(df["date"])
     return df
