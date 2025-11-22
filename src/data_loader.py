@@ -1,4 +1,3 @@
-"""Utilities for fetching and caching cryptocurrency datasets."""
 
 from __future__ import annotations
 

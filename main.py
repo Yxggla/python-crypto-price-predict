@@ -1,4 +1,3 @@
-"""Entry point for running the cryptocurrency analytics workflow."""
 
 from __future__ import annotations
 
@@ -25,7 +24,7 @@ from src.data_loader import (
     download_price_history,
     load_history,
 )
-from src.model import predict_linear_regression, train_linear_regression, forecast_linear_regression
+from src.model import train_linear_regression, forecast_linear_regression, rolling_backtest_linear_regression
 from src.visualization import plot_actual_vs_predicted, plot_price_history, plot_indicator_panel, plot_recent_forecast, kline_chart
 
 
@@ -55,17 +54,25 @@ def export_forecast_table(
 def export_recent_prediction_comparison(
     symbol: str,
     actual_series: pd.Series,
-    predicted_series: pd.Series,
+    predicted_df: pd.DataFrame,
     window: int = 90,
 ) -> None:
     """Persist last-N-day actual vs predicted closes for inspection."""
-    if predicted_series.empty:
+    if predicted_df.empty:
         return
+
+    if "prediction" not in predicted_df.columns:
+        raise KeyError("predicted_df must include a 'prediction' column.")
+
+    predicted_series = predicted_df["prediction"]
 
     aligned_actual = actual_series.loc[predicted_series.index]
     if window:
         aligned_actual = aligned_actual.tail(window)
         predicted_series = predicted_series.loc[aligned_actual.index]
+        predicted_df = predicted_df.loc[predicted_series.index]
+
+    predicted_meta = predicted_df.loc[predicted_series.index]
 
     export_df = pd.DataFrame(
         {
@@ -75,10 +82,60 @@ def export_recent_prediction_comparison(
         }
     )
     export_df["diff"] = export_df["predicted_close"] - export_df["actual_close"]
+    export_df["diff_pct"] = export_df["diff"] / export_df["actual_close"] * 100
+    export_df = pd.concat([export_df, predicted_meta["train_start"].reset_index(drop=True)], axis=1)
+    export_df = pd.concat([export_df, predicted_meta["train_end"].reset_index(drop=True)], axis=1)
+    export_df.rename(columns={"train_start": "train_start_date", "train_end": "train_end_date"}, inplace=True)
     export_df["date"] = pd.to_datetime(export_df["date"]).dt.strftime("%Y-%m-%d")
+    export_df["train_start_date"] = pd.to_datetime(export_df["train_start_date"]).dt.strftime("%Y-%m-%d")
+    export_df["train_end_date"] = pd.to_datetime(export_df["train_end_date"]).dt.strftime("%Y-%m-%d")
     export_df[["actual_close", "predicted_close", "diff"]] = export_df[
         ["actual_close", "predicted_close", "diff"]
     ].round(2)
+    export_df["diff_pct"] = export_df["diff_pct"].round(2)
+
+    avg_diff = export_df["diff"].mean()
+    avg_diff_pct = export_df["diff_pct"].mean()
+
+    trimmed_diff = None
+    trimmed_diff_pct = None
+    if len(export_df) >= 3:
+        diff_series = export_df["diff"]
+        max_idx = diff_series.idxmax()
+        min_idx = diff_series.idxmin()
+        trimmed_mask = ~diff_series.index.isin([max_idx, min_idx])
+        trimmed_diff_series = diff_series[trimmed_mask]
+        trimmed_diff_pct_series = export_df.loc[trimmed_mask, "diff_pct"]
+        if not trimmed_diff_series.empty:
+            trimmed_diff = trimmed_diff_series.mean()
+            trimmed_diff_pct = trimmed_diff_pct_series.mean()
+
+    summary_rows = [
+        {
+            "date": "AVG",
+            "actual_close": "",
+            "predicted_close": "",
+            "diff": round(avg_diff, 2),
+            "diff_pct": round(avg_diff_pct, 2),
+            "train_start_date": "",
+            "train_end_date": "",
+        }
+    ]
+
+    if trimmed_diff is not None and trimmed_diff_pct is not None:
+        summary_rows.append(
+            {
+                "date": "AVG_TRIM",
+                "actual_close": "(ex max/min)",
+                "predicted_close": "",
+                "diff": round(trimmed_diff, 2),
+                "diff_pct": round(trimmed_diff_pct, 2),
+                "train_start_date": "",
+                "train_end_date": "",
+            }
+        )
+
+    export_df = pd.concat([export_df, pd.DataFrame(summary_rows)], ignore_index=True)
 
     export_dir = Path("exports")
     export_dir.mkdir(parents=True, exist_ok=True)
@@ -251,20 +308,28 @@ def main() -> None:
 
     for symbol, data in datasets.items():
         model, metrics = train_linear_regression(data)
-        predictions = predict_linear_regression(model, data)
         actual_series = data.set_index("date")["Close"]
-        summary = pd.DataFrame({"actual": actual_series.loc[predictions.index], "predicted": predictions})
-        save_path = figures_dir / f"{symbol.lower()}_predictions.png"
-        plot_actual_vs_predicted(
-            actual_series,
-            predictions,
-            symbol,
-            save_path=save_path,
-            window=90,
+        backtest_preds = rolling_backtest_linear_regression(
+            data, horizon=model.horizon, windows=model.windows, lookback=90
         )
+
         print(f"Linear regression training metrics for {symbol}:", metrics)
-        print(summary.tail())
-        export_recent_prediction_comparison(symbol, actual_series, predictions, window=90)
+
+        if backtest_preds.empty:
+            print(f"[warn] Not enough history to produce rolling backtest predictions for {symbol}.")
+        else:
+            pred_series = backtest_preds["prediction"]
+            summary = pd.DataFrame({"actual": actual_series.loc[pred_series.index], "predicted": pred_series})
+            save_path = figures_dir / f"{symbol.lower()}_predictions.png"
+            plot_actual_vs_predicted(
+                actual_series,
+                pred_series,
+                symbol,
+                save_path=save_path,
+                window=90,
+            )
+            export_recent_prediction_comparison(symbol, actual_series, backtest_preds, window=90)
+            print(summary.tail())
 
         try:
             future_series = forecast_linear_regression(model, data, steps=7)

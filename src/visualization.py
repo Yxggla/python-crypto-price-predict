@@ -1,4 +1,3 @@
-"""Visualization helpers for cryptocurrency analytics."""
 
 from __future__ import annotations
 

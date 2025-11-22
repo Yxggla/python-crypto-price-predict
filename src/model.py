@@ -1,4 +1,4 @@
-"""Baseline forecasting models for cryptocurrency prices."""
+
 
 from __future__ import annotations
 
@@ -79,6 +79,72 @@ def predict_linear_regression(model: LinearRegressionModel, df: pd.DataFrame) ->
         date_index = pd.DatetimeIndex(df.loc[raw_pred.index, "date"])
         raw_pred.index = date_index
     return raw_pred
+
+
+def rolling_backtest_linear_regression(
+    df: pd.DataFrame,
+    horizon: int = 1,
+    windows: Iterable[int] = (1, 7, 30),
+    lookback: int = 90,
+    min_history: int | None = None,
+) -> pd.DataFrame:
+    """Walk-forward predictions with the training window recorded per target day.
+
+    When predicting price on day *T*, the model is trained on all data up to
+    day *T-horizon*. The returned dataframe includes the prediction alongside
+    the training start/end dates used for that prediction.
+    """
+
+    if "date" not in df.columns:
+        raise KeyError("Dataframe must contain 'date' column for backtesting.")
+
+    max_window = max(windows) if windows else 1
+    min_history = min_history or (max_window + horizon + 1)
+    if len(df) <= min_history:
+        return pd.DataFrame(columns=["prediction", "train_start", "train_end"])
+
+    start_idx = max(len(df) - lookback, min_history)
+    records: list[dict] = []
+
+    for target_idx in range(start_idx, len(df)):
+        train_end = target_idx - horizon + 1
+        if train_end <= 0:
+            continue
+
+        train_df = df.iloc[:train_end]
+        X_train, y_train = prepare_supervised(train_df, horizon, windows)
+        if X_train.empty or y_train.empty:
+            continue
+
+        regressor = LinearRegression()
+        regressor.fit(X_train, y_train)
+        model = LinearRegressionModel(regressor, tuple(X_train.columns), horizon, tuple(windows))
+
+        features = _feature_engineering(train_df, model.windows)
+        row = features.iloc[[-1]].reindex(columns=model.feature_columns)
+        if row.isna().any().any():
+            continue
+
+        pred_value = float(model.regressor.predict(row)[0])
+        pred_date = pd.to_datetime(df.loc[target_idx, "date"])
+        train_start_date = pd.to_datetime(train_df["date"].iloc[0])
+        train_end_date = pd.to_datetime(train_df["date"].iloc[-1])
+
+        records.append(
+            {
+                "date": pred_date,
+                "prediction": pred_value,
+                "train_start": train_start_date,
+                "train_end": train_end_date,
+            }
+        )
+
+    result = pd.DataFrame.from_records(records)
+    if result.empty:
+        return pd.DataFrame(columns=["prediction", "train_start", "train_end"])
+    result.set_index("date", inplace=True)
+    result.index = pd.DatetimeIndex(result.index)
+    return result
 
 
 def fit_arima(df: pd.DataFrame, order: Tuple[int, int, int] = (5, 1, 0)):
