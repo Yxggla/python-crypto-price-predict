@@ -1,7 +1,15 @@
 # Cryptocurrency Trend Analysis / 加密货币趋势分析
 
-CLI workflow that downloads yfinance OHLCV, computes interpretable indicators, renders export-ready visualisations, and prints “lean long / lean short / wait” suggestions for a 10-minute investment briefing.  
-本项目是一套基于 yfinance 的 CLI 工作流，可自动抓取 OHLCV、生成可解释指标、导出图表，并输出“偏多/偏空/观望”建议，满足 10 分钟趋势汇报的需求。
+CLI workflow that downloads yfinance OHLCV (open/high/low/close/volume lines), computes interpretable indicators (drawdown, Sharpe, volatility regimes, MA crossovers, BTC–ETH spread z-score, etc.), renders export-ready visualisations, runs short-term forecasts, and prints “lean long / lean short / wait” suggestions for a 10-minute investment briefing.  
+本项目是一套基于 yfinance 的 CLI 工作流，可自动抓取“开盘价/最高价/最低价/收盘价/成交量”这些核心行情数据，先计算滚动回撤/夏普/波动率 Regime/MA 交叉/BTC‑ETH 价差 z-score 等指标，再结合 7 天预测生成图表，最终输出“偏多/偏空/观望”建议，满足 10 分钟趋势汇报的需求。
+
+**Purpose / 目的** – Give retail investors and课堂评委一份“10 分钟即可读完”的趋势简报：统一数据来源、指标解释、预测结果和可视化风格，让任何人无需翻阅多份报告就能迅速判断 BTC/ETH/SOL 应该偏多、偏空还是观望。
+
+**Quick Signal Logic / 简易判定逻辑**
+- MA7 在线上、滚动夏普为正、波动率不是 high → `LEAN LONG`（偏多）
+- MA7 在下、滚动夏普为负 → `LEAN SHORT`（偏空）
+- 波动率 high 且近期回撤 >8% → `STAND ASIDE / WAIT`（观望）
+- 不满足以上条件则保持 `WAIT`
 
 ## Overview 概述
 
