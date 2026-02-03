@@ -62,3 +62,7 @@ requirements.txt  Python 依赖
 - Matplotlib 可视化（韩晔）：生成价格/均线图及指标面板。
 - Plotly 与 HTML 可视化（薛姗姗）：负责 Plotly K 线及其他交互式输出。
 - Matplotlib 可视化（宁衍程）：生成预测相关 PNG（如 `forecast_next7`）。
+
+<img width="1434" height="912" alt="截屏2026-02-03 10 51 23" src="https://github.com/user-attachments/assets/55919fb9-b325-444e-92af-a26892f74e4e" />
+
+
